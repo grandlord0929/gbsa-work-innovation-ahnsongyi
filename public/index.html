@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GBSA 지능형 통합 업무 리마인더 시스템</title>
+<style>
+:root{--navy:#0b2a5b;--navy2:#123a75;--blue:#2563eb;--blue50:#eff6ff;--blue100:#dbeafe;--bg:#f4f7fb;--card:#fff;--line:#e3e8f0;--text:#0f1b33;--muted:#64748b;--red:#dc2626;--red50:#fef2f2;--amber:#b45309;--amber50:#fffbeb;--green:#059669;--green50:#ecfdf5;--shadow:0 1px 2px #0b2a5b0d,0 4px 14px #0b2a5b0a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Pretendard,"Malgun Gothic",Arial,sans-serif;font-size:14px;line-height:1.5}
+button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer;border:0}button:disabled{opacity:.55;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.muted{color:var(--muted);font-size:13px}.hidden,[hidden]{display:none!important}
+
+/* header */
+.header{background:var(--navy);color:#fff;padding:0 24px;height:64px;display:flex;align-items:center;gap:20px;position:sticky;top:0;z-index:20;box-shadow:0 2px 10px #0b2a5b33}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}.logo{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);display:grid;place-items:center;font-weight:800;letter-spacing:-.5px;flex:none}
+.brand b{font-size:15px;white-space:nowrap}.brand .sub{font-size:11.5px;color:#ffffffa6;margin-top:1px;white-space:nowrap}
+.mode-tabs{display:flex;background:#ffffff1a;border-radius:10px;padding:3px;margin:0 auto}
+.mode-tabs button{background:transparent;color:#ffffffe0;padding:8px 18px;border-radius:8px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:7px;transition:.15s}
+.mode-tabs button[aria-selected=true]{background:#fff;color:var(--navy);box-shadow:0 1px 4px #0003}
+.who{display:flex;align-items:center;gap:10px;min-width:0}.avatar{width:34px;height:34px;border-radius:50%;background:#3b82f6;display:grid;place-items:center;font-weight:800;flex:none}
+.who .nm{font-size:13px;font-weight:700;white-space:nowrap}.who .dp{font-size:11.5px;color:#ffffffa6;white-space:nowrap}
+.who select{background:#ffffff1a;color:#fff;border:1px solid #ffffff33;border-radius:8px;padding:6px 8px;font-size:12px;max-width:150px}.who select option,.who select optgroup{color:#111}
+
+.container{max-width:1440px;margin:auto;padding:26px 24px 10px}
+.pagehead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+h1{font-size:22px;margin:0 0 4px;letter-spacing:-.4px}h2{font-size:15px;margin:0;letter-spacing:-.2px}
+.actions-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* buttons */
+.btn{padding:9px 14px;border-radius:9px;font-weight:700;font-size:13px;border:1px solid var(--line);background:#fff;color:#334155;transition:.12s}
+.btn:hover:not(:disabled){background:#f8fafc;border-color:#cbd5e1}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}.btn.primary:hover:not(:disabled){background:#1d4ed8}
+.btn.success{background:var(--green);border-color:var(--green);color:#fff}.btn.sm{padding:6px 10px;font-size:12px}
+.demo-btn{background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;padding:10px 13px;border-radius:9px;font-size:12.5px;font-weight:700;box-shadow:0 2px 8px #2563eb44;width:100%}
+.demo-btn.block{margin-top:12px}
+
+/* cards & panels */
+.panel,.card,.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+.panel{padding:20px}.panel+.panel{margin-top:16px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.kpi{padding:16px 18px;position:relative;overflow:hidden}.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--blue)}
+.kpi.red::before{background:var(--red)}.kpi.amber::before{background:#f59e0b}.kpi.green::before{background:var(--green)}
+.kpi span{color:var(--muted);font-size:12.5px;font-weight:600}.kpi strong{display:block;font-size:26px;margin-top:2px;letter-spacing:-.5px}.kpi small{color:var(--muted);font-size:12px}
+
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:22px;align-items:start}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.tab{padding:8px 13px;border:1px solid var(--line);background:#fff;border-radius:999px;color:#475569;font-size:13px;font-weight:600}
+.tab.active{background:var(--navy);border-color:var(--navy);color:#fff}.tab .n{opacity:.7;margin-left:3px;font-weight:500}
+.cards{display:grid;gap:12px}
+.card{padding:18px 20px;border-left:4px solid #94a3b8;transition:.15s}
+.card.over{border-left-color:var(--red)}.card.urgent{border-left-color:#ef4444}.card.warn{border-left-color:#f59e0b}.card.normal{border-left-color:var(--blue)}.card.done{border-left-color:var(--green);background:#fcfffd}
+.card.flash{animation:flash 2s ease}@keyframes flash{0%,60%{box-shadow:0 0 0 3px #10b98166}100%{box-shadow:var(--shadow)}}
+.card-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.chip{font-size:11.5px;font-weight:700;color:#475569;background:#f1f5f9;padding:3px 9px;border-radius:6px}
+.card h3{margin:8px 0 4px;font-size:15.5px;letter-spacing:-.3px}.card .meta{color:var(--muted);font-size:12.5px}
+.card .actions{margin-top:14px;display:flex;gap:8px}
+.cert-info{margin-top:10px;font-size:12px;color:#065f46;background:var(--green50);border-radius:8px;padding:8px 10px;line-height:1.6}
+
+/* D-day badges */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.b-over{background:#7f1d1d;color:#fff}.b-urgent{background:var(--red50);color:var(--red);box-shadow:inset 0 0 0 1px #fecaca}
+.b-warn{background:var(--amber50);color:var(--amber);box-shadow:inset 0 0 0 1px #fde68a}.b-normal{background:var(--blue50);color:#1d4ed8;box-shadow:inset 0 0 0 1px var(--blue100)}
+.b-done{background:var(--green50);color:#047857;box-shadow:inset 0 0 0 1px #a7f3d0}.b-none{background:#f1f5f9;color:#64748b}.b-new{background:var(--blue);color:#fff;animation:pulse 1.6s ease 3}
+@keyframes pulse{50%{transform:scale(1.08)}}
+
+/* chat */
+.chat{padding:0;overflow:hidden;position:sticky;top:82px;height:calc(100vh - 110px);min-height:520px;max-height:700px;display:flex;flex-direction:column}
+.chat-head{background:var(--navy);color:#fff;padding:14px 16px}.chat-head .sub{font-size:12px;color:#ffffffa6}
+.chat-tools{padding:10px 14px 0}.messages{padding:14px;overflow:auto;flex:1}
+.msg{background:var(--blue50);border-radius:12px;padding:9px 12px;margin-bottom:9px;font-size:13px;line-height:1.55;word-break:break-word}.msg.user{background:var(--blue);color:#fff;margin-left:34px}
+.chat-input{border-top:1px solid var(--line);padding:12px;display:flex;gap:8px}.chat-input input{min-width:0;flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:8px}
+
+/* OCR panel */
+.upload{display:block;border:2px dashed #cbd5e1;border-radius:12px;padding:22px;text-align:center;margin-top:14px;color:var(--muted);cursor:pointer;transition:.15s}.upload:hover,.upload.over,.drop:hover,.drop.over{border-color:var(--blue);background:var(--blue50)}
+.tag{display:inline-block;font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:999px;background:var(--blue50);color:#1d4ed8;vertical-align:middle;margin-left:6px}
+.ocr-flow{margin-top:16px;border:1px solid var(--line);border-radius:12px;padding:16px;background:#fbfdff}.ocr-grid{display:grid;grid-template-columns:150px minmax(0,1fr);gap:16px}
+.ocr-thumb{border:1px solid var(--line);border-radius:8px;background:#fff;min-height:110px;display:grid;place-items:center;overflow:hidden;position:relative}.ocr-thumb img{max-width:100%;display:block}
+.ocr-thumb.scan::after{content:"";position:absolute;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--blue),transparent);animation:scan 1.4s linear infinite}@keyframes scan{0%{top:0}100%{top:calc(100% - 3px)}}
+.steps{list-style:none;margin:0;padding:0;font-size:13px}.steps li{display:flex;gap:9px;align-items:flex-start;padding:5px 0;color:#94a3b8}
+.steps .dot{width:18px;height:18px;border-radius:50%;border:2px solid #cbd5e1;flex:none;margin-top:1px;display:grid;place-items:center;font-size:10px;color:#fff}
+.steps li.active{color:var(--text);font-weight:700}.steps li.active .dot{border-color:var(--blue);border-top-color:transparent;animation:spin .8s linear infinite}
+.steps li.done{color:var(--text)}.steps li.done .dot{background:var(--green);border-color:var(--green)}.steps li.err{color:var(--red)}.steps li.err .dot{background:var(--red);border-color:var(--red)}
+@keyframes spin{to{transform:rotate(360deg)}}.steps small{display:block;font-weight:400;color:var(--muted);font-size:11px}
+.bar{height:6px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin-top:8px}.bar i{display:block;height:100%;width:0;background:var(--blue);transition:width .25s}
+.fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}.fbox{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff;min-height:62px}
+.fbox span{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}.fbox b{font-size:13px;word-break:break-word}.fbox.ok{border-color:#a7f3d0;background:#f0fdf9}.fbox.miss b{color:var(--amber)}
+.cand{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.cand-note{margin-top:12px;font-size:12px;color:var(--amber)}
+
+/* admin */
+.two{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:18px;margin-bottom:18px;align-items:start}
+.panel .ph{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+label.f{display:block;font-size:12.5px;font-weight:700;color:#334155;margin-top:12px}
+.in{display:block;width:100%;margin-top:5px;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;background:#fff}.in:focus{border-color:var(--blue);outline:2px solid var(--blue100)}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sendbox{margin-top:14px;border-radius:10px;padding:12px 14px;background:var(--green50);border:1px solid #a7f3d0;font-size:13px}.sendbox.warn{background:var(--amber50);border-color:#fde68a}
+.dept-list{display:grid;gap:8px}.dept-row{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;transition:.12s}
+.dept-row:hover{border-color:#93c5fd;background:#fbfdff}.dept-row.sel{border-color:var(--blue);background:var(--blue50)}
+.dept-top{display:flex;align-items:baseline;gap:8px}.dept-top b{font-size:13.5px}.dept-top .rate{margin-left:auto;font-weight:800;font-size:15px}
+.pbar{height:9px;background:#e8edf5;border-radius:99px;overflow:hidden;margin:7px 0 5px}.pbar i{display:block;height:100%;border-radius:99px;transition:width .5s}
+.lv-hi{background:linear-gradient(90deg,#10b981,#059669)}.lv-mid{background:linear-gradient(90deg,#3b82f6,#2563eb)}.lv-low{background:linear-gradient(90deg,#fbbf24,#f59e0b)}
+.dept-sub{font-size:11.5px;color:var(--muted)}.dept-sub b{color:var(--red)}
+.tbl-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{background:#f8fafc;color:#475569;text-align:left;font-size:12px;padding:10px 12px;white-space:nowrap;border-bottom:1px solid var(--line);position:sticky;top:0}
+.tbl td{padding:10px 12px;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:middle}.tbl tr:last-child td{border-bottom:0}.tbl tr.me td{background:var(--blue50)}
+.tbl tr.flash td{animation:rowflash 2.4s ease}@keyframes rowflash{0%,60%{background:#d1fae5}100%{background:transparent}}
+.mini{display:flex;align-items:center;gap:8px;min-width:130px}.mini .pbar{flex:1;margin:0;height:7px}.mini span{font-size:12px;color:var(--muted);min-width:34px}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}.filters .in{margin:0;width:auto;min-width:150px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}.seg button{padding:7px 11px;border-radius:999px;border:1px solid var(--line);background:#fff;font-size:12.5px;font-weight:600;color:#475569}
+.seg button.on{background:var(--navy);color:#fff;border-color:var(--navy)}.seg b{opacity:.75;margin-left:3px;font-weight:600}
+.pager{display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:10px;flex-wrap:wrap}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}.fchip{background:var(--blue50);color:#1d4ed8;font-size:12px;font-weight:700;padding:4px 9px;border-radius:999px;display:inline-flex;gap:6px;align-items:center}.fchip button{background:none;color:inherit;padding:0;font-size:14px;line-height:1}
+details.panel summary{cursor:pointer;font-weight:800;font-size:15px}
+.field{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-top:10px}.drop{border:2px dashed #cbd5e1;border-radius:10px;padding:22px;text-align:center;cursor:pointer;display:block;margin-top:14px;color:var(--muted)}
+.preview{background:#f8fafc;border:1px solid var(--line);padding:12px;border-radius:8px;white-space:pre-wrap;max-height:190px;overflow:auto;font-size:12px;margin-top:12px}
+.banner{background:var(--red50);border:1px solid #fecaca;color:#991b1b;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:13px}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}.live i{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px #10b98133}.live.err i{background:var(--red);box-shadow:0 0 0 3px #dc262633}
+
+/* modal & toast */
+.overlay{position:fixed;inset:0;background:#0b1730aa;z-index:50;display:grid;place-items:center;padding:20px}
+.modal{background:#fff;border-radius:16px;width:min(680px,100%);max-height:88vh;overflow:auto;box-shadow:0 20px 60px #0006}
+.modal-h{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff}
+.modal-b{padding:18px 22px 22px}.x{background:none;font-size:22px;line-height:1;color:var(--muted);padding:4px 8px;border-radius:6px}.x:hover{background:#f1f5f9}
+#toasts{position:fixed;right:18px;bottom:18px;z-index:80;display:grid;gap:8px}
+.toast{background:var(--navy);color:#fff;padding:11px 16px;border-radius:10px;box-shadow:0 8px 24px #0004;font-size:13px;max-width:360px;animation:tin .25s ease}.toast.ok{background:#047857}.toast.err{background:#b91c1c}.toast.out{opacity:0;transform:translateY(6px);transition:.35s}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}}
+footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
+
+@media(max-width:1000px){.grid,.two{grid-template-columns:1fr}.chat{position:static;height:560px}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ocr-grid,.fields{grid-template-columns:1fr}.brand .sub{display:none}}
+@media(max-width:700px){.header{height:auto;flex-wrap:wrap;padding:10px 14px;gap:10px}.mode-tabs{order:3;width:100%;margin:0}.mode-tabs button{flex:1;justify-content:center}.container{padding:18px 14px 6px}.frow{grid-template-columns:1fr}.who .dp{display:none}}
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="brand"><div class="logo">GB</div><div><b>경기도경제과학진흥원 GBSA</b><div class="sub">지능형 통합 업무 리마인더 지원 시스템</div></div></div>
+  <div class="mode-tabs" role="tablist" aria-label="화면 모드">
+    <button id="tabEmployee" role="tab" aria-selected="true">👤 직원 모드</button>
+    <button id="tabAdmin" role="tab" aria-selected="false">🛠 관리자 모드</button>
+  </div>
+  <div class="who">
+    <div class="avatar" id="meAvatar">-</div>
+    <div><div class="nm" id="meName">불러오는 중</div><div class="dp" id="meDept"></div></div>
+    <select id="meSelect" title="로그인 사원 전환 (시연용)" aria-label="로그인 사원 전환"></select>
+  </div>
+</header>
+
+<!-- ============ 직원 모드 ============ -->
+<main id="employeeView" class="container">
+  <div class="pagehead">
+    <div><h1>내 행정 업무 체크리스트</h1><div class="live" id="syncStatus"><i></i><span>서버 연결 확인 중...</span></div></div>
+    <div class="actions-row"><button class="btn resetDemoBtn" title="시연 데이터를 처음 상태로 되돌립니다">↺ 시연 데이터 초기화</button></div>
+  </div>
+  <div id="empError" class="banner" hidden></div>
+  <div class="kpis" id="myKpi"></div>
+  <div class="grid">
+    <section>
+      <div class="tabs" id="catTabs">
+        <button class="tab active" data-filter="all">전체<span class="n" id="cnt-all">0</span></button>
+        <button class="tab" data-filter="service">복무 누락 소명<span class="n" id="cnt-service">0</span></button>
+        <button class="tab" data-filter="edu">교육 수료증 제출<span class="n" id="cnt-edu">0</span></button>
+        <button class="tab" data-filter="doc">요구자료 제출<span class="n" id="cnt-doc">0</span></button>
+      </div>
+      <div id="cards" class="cards"><div class="muted">불러오는 중...</div></div>
+
+      <div class="panel" style="margin-top:16px" id="certPanel">
+        <b>교육 수료증 원클릭 업로드 제출<span class="tag">브라우저 OCR</span></b>
+        <div class="muted" style="margin-top:5px">수료증 이미지/PDF를 올리면 Tesseract.js가 브라우저에서 글자를 읽고, 교육명·발급기관·이수일자를 추출해 내 미제출 교육 업무를 자동으로 제출 처리합니다.</div>
+        <label id="certDrop" class="upload">파일을 끌어놓거나 클릭하여 업로드<br><small>PDF, JPG, PNG</small><input id="certFile" type="file" hidden accept=".pdf,.jpg,.jpeg,.png"></label>
+        <button class="demo-btn block demoCertBtn">▶ 시연용 샘플 수료증 자동 입력</button>
+        <div id="ocrFlow" class="ocr-flow" hidden>
+          <div class="ocr-grid">
+            <div><div id="ocrThumb" class="ocr-thumb"><span class="muted">미리보기</span></div><div class="bar"><i id="ocrBar"></i></div></div>
+            <ol class="steps" id="ocrSteps"></ol>
+          </div>
+          <div class="fields" id="ocrFields"></div>
+          <div id="ocrCand"></div>
+        </div>
+        <div id="certResult" class="muted" style="margin-top:10px"></div>
+      </div>
+    </section>
+    <aside class="panel chat">
+      <div class="chat-head"><b>● GBSA AI업무혁신 매니저</b><div class="sub">실시간 알림 · 자연어 질의응답</div></div>
+      <div class="chat-tools"><button class="demo-btn demoCertBtn">▶ 시연용 샘플 수료증 자동 입력</button></div>
+      <div id="messages" class="messages"></div>
+      <div class="chat-input"><input id="chatInput" placeholder="예: 미제출 목록, 오늘 마감" aria-label="질문 입력"><button id="chatSend" class="btn primary">전송</button></div>
+    </aside>
+  </div>
+</main>
+
+<!-- ============ 관리자 모드 ============ -->
+<section id="adminView" class="container" hidden>
+  <div class="pagehead">
+    <div><h1>관리자 대시보드</h1><div class="live" id="adminLive"><i></i><span>불러오는 중...</span></div></div>
+    <div class="actions-row"><button class="btn" id="adminRefresh">⟳ 새로고침</button><button class="btn resetDemoBtn" title="시연 데이터를 처음 상태로 되돌립니다">↺ 시연 데이터 초기화</button></div>
+  </div>
+  <div id="adminError" class="banner" hidden></div>
+  <div class="kpis">
+    <div class="kpi"><span>전체 대상 인원 (사원 DB)</span><strong id="kTotal">-</strong><small id="kTotalSub"></small></div>
+    <div class="kpi green"><span>제출 완료율</span><strong id="kRate">-</strong><small id="kRateSub"></small></div>
+    <div class="kpi amber"><span>미제출 사원</span><strong id="kPending">-</strong><small>미제출 업무가 1건 이상인 사원</small></div>
+    <div class="kpi red"><span>기한 초과 미제출</span><strong id="kOverdue">-</strong><small>마감이 지난 미제출 (사원×업무)</small></div>
+  </div>
+
+  <div class="two">
+    <div class="panel">
+      <div class="ph"><h2>부서별 신규 제출요청 발송</h2></div>
+      <div class="muted">선택한 부서의 사원 전원에게 새 업무가 생성되며, 각 사원의 직원 화면 체크리스트에 즉시 나타납니다.</div>
+      <form id="reqForm" novalidate>
+        <label class="f">대상 부서<select id="reqDept" class="in" required></select></label>
+        <div class="frow">
+          <label class="f">업무 유형<select id="reqCat" class="in"><option value="doc">요구자료 제출</option><option value="edu">교육 수료증 제출</option><option value="service">복무 누락 소명</option></select></label>
+          <label class="f">마감일<input id="reqDue" type="date" class="in" required></label>
+        </div>
+        <label class="f">업무명<input id="reqTitle" class="in" maxlength="200" placeholder="예: 2026년 하반기 성과지표 자료 제출" required></label>
+        <label class="f">요청부서<input id="reqFrom" class="in" maxlength="50" value="총무인사팀"></label>
+        <div class="actions-row" style="margin-top:16px"><button class="btn primary" id="reqSend" type="submit">제출요청 발송</button><span class="muted" id="reqHint"></span></div>
+      </form>
+      <div id="sendResult" class="sendbox" hidden></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><h2>부서별 제출률</h2><span class="muted" id="deptNote"></span></div>
+      <div class="dept-list" id="deptList"><div class="muted">불러오는 중...</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ph"><h2>제출요청 발송 현황</h2><span class="muted">행의 [보기]로 해당 요청의 사원별 제출 상태만 볼 수 있습니다</span></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>발송일시</th><th>업무명</th><th>대상</th><th>마감일</th><th>제출 현황</th><th></th></tr></thead><tbody id="reqRows"><tr><td colspan="6" class="muted">불러오는 중...</td></tr></tbody></table></div>
+  </div>
+
+  <div class="panel" id="empPanel">
+    <div class="ph"><h2>사원별 제출 상태</h2><span class="muted" id="empCount"></span></div>
+    <div class="chips" id="fchips"></div>
+    <div class="filters">
+      <select id="fDept" class="in" aria-label="부서 필터"></select>
+      <input id="fQ" class="in" placeholder="사원명 · 사번 · 부서 검색" aria-label="사원 검색" style="min-width:220px">
+      <div class="seg" id="fStatus"></div>
+    </div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>사번</th><th>사원명</th><th>부서</th><th>제출 현황</th><th>상태</th><th>최근 제출</th><th></th></tr></thead><tbody id="empRows"></tbody></table></div>
+    <div class="pager"><span class="muted" id="pgInfo"></span><div class="actions-row"><button class="btn sm" id="pgPrev">이전</button><button class="btn sm" id="pgNext">다음</button></div></div>
+  </div>
+
+  <details class="panel">
+    <summary>공문(OCR)으로 제출요청 자동 생성</summary>
+    <div class="muted" style="margin-top:8px">공문·안내문을 올리면 제목, 업무유형, 마감일, 요청부서를 추출합니다. 이미지/PDF는 브라우저 OCR(Tesseract.js)로 텍스트를 읽습니다.</div>
+    <label id="docDrop" class="drop">공문 파일을 끌어놓거나 클릭하세요<br><small>TXT · PDF · JPG · PNG</small><input id="docFile" type="file" hidden accept=".txt,.pdf,.jpg,.jpeg,.png"></label>
+    <textarea id="docText" class="field" rows="6" placeholder="또는 OCR 결과 텍스트를 붙여 넣으세요&#10;예: 제목: 2026년 정보보안 교육 이수증 제출&#10;요청부서: ICT안전팀&#10;제출기한: 2026년 9월 30일&#10;대상자: 전체 직원"></textarea>
+    <div class="actions-row" style="margin-top:10px"><button id="analyzeBtn" class="btn primary">문서 분석</button></div>
+    <pre id="preview" class="preview">아직 분석된 문서가 없습니다.</pre>
+    <div class="tbl-wrap" style="margin-top:12px"><table class="tbl"><thead><tr><th></th><th>업무명</th><th>자동분류</th><th>마감일</th><th>요청부서</th></tr></thead><tbody id="records"><tr><td colspan="5" class="muted">문서를 분석하면 결과가 표시됩니다.</td></tr></tbody></table></div>
+    <div class="actions-row" style="margin-top:12px"><label class="muted" for="docTarget">발송 대상 부서</label><select id="docTarget" class="in" style="width:auto;margin:0"></select><button id="createBtn" class="btn success">선택 업무 제출요청 발송</button></div>
+  </details>
+</section>
+
+<div id="toasts" aria-live="polite"></div>
+<div id="overlay" class="overlay" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle"><div class="modal-h"><h2 id="mTitle"></h2><button class="x" id="mClose" aria-label="닫기">×</button></div><div class="modal-b" id="mBody"></div></div></div>
+<footer>ⓒ 경기도경제과학진흥원 · AI 업무 혁신 해커톤 시연용 (사원 DB: employees.xlsx · 백엔드 API 연동)</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const API='';
+const PDF_WORKER_URL='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const LS={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
+
+let me=null, employees=[], mode='employee', tasks=[], records=[], depts=[];
+
+async function api(path, opts={}){
+  const res = await fetch(API+path, {
+    headers: opts.body && !(opts.body instanceof FormData) ? {'Content-Type':'application/json'} : undefined,
+    ...opts,
+  });
+  if(!res.ok){
+    let data; try{ data = await res.json(); }catch(e){ data = { error: res.statusText }; }
+    const err = new Error(data.error || data.message || `요청 실패 (${res.status})`);
+    err.status = res.status; err.data = data;
+    throw err;
+  }
+  if(res.status===204) return null;
+  return res.json();
+}
+
+/* ---------- 공통 UI ---------- */
+function toast(msg,type=''){
+  const el=document.createElement('div'); el.className='toast '+type; el.textContent=msg; $('#toasts').appendChild(el);
+  setTimeout(()=>el.classList.add('out'),3800); setTimeout(()=>el.remove(),4300);
+}
+function openModal(title,html){
+  $('#mTitle').textContent=title; $('#mBody').innerHTML=html; $('#overlay').hidden=false; $('#mClose').focus();
+}
+function closeModal(){ $('#overlay').hidden=true }
+$('#mClose').onclick=closeModal;
+$('#overlay').addEventListener('mousedown',e=>{ if(e.target.id==='overlay') closeModal() });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !$('#overlay').hidden) closeModal() });
+
+const today0=()=>{ const d=new Date(); d.setHours(0,0,0,0); return d };
+const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const fmtDue=due=>{ const d=new Date(due+'T00:00:00'); return isNaN(d)?due:`${due} (${'일월화수목금토'[d.getDay()]})`; };
+const shortTime=s=>s?String(s).slice(5,16):'-';
+function catLabel(cat){ return cat==='service'?'복무 누락 소명':cat==='edu'?'교육 수료증 제출':'요구자료 제출' }
+
+// D-Day 상태 배지: 긴급(D-1 이내/D-DAY) · 주의(D-2~3) · 진행(D-4~) · 기한초과 · 제출완료
+function dinfo(t){
+  if(t.status==='done') return {cls:'done',badge:'b-done',label:'✓ 제출완료'};
+  const n=Math.round((new Date(t.due+'T00:00:00')-today0())/864e5);
+  if(n<0) return {cls:'over',badge:'b-over',label:`기한초과 D+${-n}`};
+  if(n<=1) return {cls:'urgent',badge:'b-urgent',label:n===0?'긴급 D-DAY':'긴급 D-1'};
+  if(n<=3) return {cls:'warn',badge:'b-warn',label:`주의 D-${n}`};
+  return {cls:'normal',badge:'b-normal',label:`D-${n}`};
+}
+const badge=t=>{ const i=dinfo(t); return `<span class="badge ${i.badge}">${i.label}</span>` };
+
+function certLine(c){
+  if(!c) return '';
+  const parts=[];
+  if(c.course_name) parts.push(`교육명 <b>${esc(c.course_name)}</b>`);
+  if(c.issuer) parts.push(`발급기관 <b>${esc(c.issuer)}</b>`);
+  if(c.completed_date) parts.push(`이수일자 <b>${esc(c.completed_date)}</b>`);
+  return parts.length ? `<div class="cert-info">✓ 수료증 OCR 자동 제출 · ${parts.join(' · ')}</div>` : '';
+}
+
+/* ---------- 모드 전환 ---------- */
+function setMode(m){
+  if(mode==='employee' && m!=='employee') markSeen();
+  mode=m; LS.set('gbsa.mode',m);
+  try{ history.replaceState(null,'',m==='admin'?'#admin':'#employee'); }catch(e){}
+  $('#employeeView').hidden = m!=='employee';
+  $('#adminView').hidden = m!=='admin';
+  $('#tabEmployee').setAttribute('aria-selected',m==='employee');
+  $('#tabAdmin').setAttribute('aria-selected',m==='admin');
+  renderMe();
+  window.scrollTo({top:0});
+  if(m==='admin') loadAdmin();
+  else{ seen=getSeen(); announced.clear(); loadTasks(); }   // 관리자 모드에 있는 동안 생긴 업무만 NEW
+}
+$('#tabEmployee').onclick=()=>setMode('employee');
+$('#tabAdmin').onclick=()=>setMode('admin');
+window.addEventListener('pagehide',markSeen);
+
+/* ---------- 로그인 사원 (엑셀 사원 DB) ---------- */
+function renderMe(){
+  const admin = mode==='admin';
+  $('#meAvatar').textContent = admin ? '관' : (me?me.name[0]:'-');
+  $('#meName').textContent = admin ? '관리자' : (me?me.name:'-');
+  $('#meDept').textContent = admin ? '총무인사팀 · 관리자 권한' : (me?`${me.dept} · ${me.empNo}`:'');
+  $('#meSelect').hidden = admin;
+}
+function buildMeSelect(){
+  const byDept={}; employees.forEach(e=>(byDept[e.dept]??=[]).push(e));
+  $('#meSelect').innerHTML = Object.keys(byDept).sort((a,b)=>byDept[b].length-byDept[a].length||a.localeCompare(b,'ko')).map(d=>
+    `<optgroup label="${esc(d)}">${byDept[d].map(e=>`<option value="${esc(e.empNo)}">${esc(e.name)} (${esc(e.empNo)})</option>`).join('')}</optgroup>`).join('');
+  $('#meSelect').value = me.empNo;
+}
+$('#meSelect').onchange=async e=>{
+  const next=employees.find(x=>x.empNo===e.target.value); if(!next) return;
+  markSeen(); me=next; LS.set('gbsa.empNo',me.empNo); renderMe();
+  seen=null; announced.clear();
+  $('#messages').innerHTML=''; welcome(); tasks=[]; await loadTasks();
+  toast(`${me.name}(${me.dept}) 사원으로 전환했습니다.`);
+};
+function welcome(){ addMsg(`${esc(me.name)}님, 안녕하세요. <b>${esc(me.dept)}</b> 소속 업무 현황을 사원 DB 기준으로 불러왔습니다.`) }
+
+/* ---------- 직원 모드: 내 체크리스트 ---------- */
+const seenKey=()=>'gbsa.seen.'+me.empNo;
+function getSeen(){ const v=LS.get(seenKey()); try{ return v?new Set(JSON.parse(v)):null }catch(e){ return null } }
+function markSeen(){ if(me && tasks.length) LS.set(seenKey(),JSON.stringify(tasks.map(t=>t.id))) }
+let seen=null; const announced=new Set();
+
+function renderKpi(){
+  const pend=tasks.filter(t=>t.status!=='done');
+  const c=k=>pend.filter(t=>dinfo(t).cls===k).length;
+  $('#myKpi').innerHTML=[
+    ['','미제출 업무',pend.length,`전체 ${tasks.length}건 중`],
+    ['amber','긴급 · 주의',c('urgent')+c('warn'),'마감 3일 이내'],
+    ['red','기한 초과',c('over'),'즉시 제출 필요'],
+    ['green','제출 완료',tasks.length-pend.length,'제출완료 처리됨'],
+  ].map(([k,l,v,s])=>`<div class="kpi ${k}"><span>${l}</span><strong>${v}<small style="font-size:14px;font-weight:600"> 건</small></strong><small>${s}</small></div>`).join('');
+}
+function renderCards(){
+  const filter=$('#catTabs .active')?.dataset.filter||'all';
+  ['all','service','edu','doc'].forEach(k=>$('#cnt-'+k).textContent = k==='all'?tasks.length:tasks.filter(t=>t.cat===k).length);
+  renderKpi();
+  const list = filter==='all' ? tasks : tasks.filter(t=>t.cat===filter);
+  if(list.length===0){ $('#cards').innerHTML='<div class="panel muted" style="text-align:center">해당하는 업무가 없습니다.</div>'; return }
+  $('#cards').innerHTML = list.map(t=>{
+    const i=dinfo(t), done=t.status==='done', isNew=seen && !seen.has(t.id);
+    return `<article class="card ${i.cls}" data-card="${t.id}">
+      <div class="card-top"><span class="chip">${catLabel(t.cat)}</span><span class="badge ${i.badge}">${i.label}</span>${isNew?'<span class="badge b-new">NEW</span>':''}</div>
+      <h3>${esc(t.title)}</h3>
+      <div class="meta">요청부서 ${esc(t.dept)} · 마감 ${esc(fmtDue(t.due))}</div>
+      ${done?certLine(t.cert):''}
+      ${!done?`<div class="actions"><button class="btn primary submit" data-id="${t.id}">제출완료</button></div>`:''}
+    </article>`;
+  }).join('');
+}
+async function loadTasks({quiet}={}){
+  if(!me) return;
+  try{
+    const list = await api('/api/tasks?empNo='+encodeURIComponent(me.empNo));
+    if(!seen) seen=getSeen();
+    if(!seen){ seen=new Set(list.map(t=>t.id)); LS.set(seenKey(),JSON.stringify([...seen])); }   // 첫 접속: 기존 업무는 NEW 아님
+    const fresh=list.filter(t=>!seen.has(t.id) && !announced.has(t.id));
+    tasks=list; renderCards();
+    if(fresh.length){
+      fresh.forEach(t=>announced.add(t.id));
+      toast(`새 제출요청 ${fresh.length}건이 도착했습니다.`,'ok');
+      addMsg(`🔔 <b>새 제출요청 ${fresh.length}건</b>이 도착했습니다.<br>${fresh.map(t=>'· '+esc(t.title)+' (마감 '+esc(t.due)+')').join('<br>')}`);
+    }
+    $('#empError').hidden=true;
+    $('#syncStatus').className='live'; $('#syncStatus').innerHTML=`<i></i><span>${esc(me.name)} · ${esc(me.dept)} · 제출현황 DB 연동 정상 (${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})} 동기화)</span>`;
+  }catch(e){
+    $('#syncStatus').className='live err'; $('#syncStatus').innerHTML=`<i></i><span>서버 연결 실패</span>`;
+    if(!quiet){ $('#empError').hidden=false; $('#empError').textContent='업무 목록을 불러오지 못했습니다: '+e.message; }
+  }
+}
+$('#catTabs').onclick=e=>{ const b=e.target.closest('.tab'); if(!b) return; $$('#catTabs .tab').forEach(x=>x.classList.remove('active')); b.classList.add('active'); renderCards() };
+
+// 직원 → 관리자: [제출완료] → POST /api/tasks/:id/submit → DB status='done'
+$('#cards').onclick=async e=>{
+  const b=e.target.closest('.submit'); if(!b) return;
+  b.disabled=true;
+  try{
+    const t=await api(`/api/tasks/${b.dataset.id}/submit`,{method:'POST'});
+    await loadTasks();
+    const el=$(`[data-card="${t.id}"]`); if(el) el.classList.add('flash');
+    toast('제출이 완료되어 DB에 반영되었습니다. 관리자 화면에 즉시 반영됩니다.','ok');
+    addMsg(`✅ <b>${esc(t.title)}</b> 제출 완료 처리되었습니다.`);
+  }catch(err){ b.disabled=false; toast('제출 실패: '+err.message,'err'); }
+};
+
+/* ---------- 챗봇 ---------- */
+function addMsg(html, cls=''){
+  const m=$('#messages'); m.insertAdjacentHTML('beforeend',`<div class="msg ${cls}">${html}</div>`); m.scrollTop=m.scrollHeight;
+}
+async function send(){
+  const q=$('#chatInput').value.trim(); if(!q||!me) return;
+  addMsg(esc(q),'user'); $('#chatInput').value='';
+  try{ const r=await api('/api/chat',{method:'POST',body:JSON.stringify({question:q,empNo:me.empNo})}); addMsg(esc(r.answer)); }
+  catch(e){ addMsg('서버 오류: '+esc(e.message)); }
+}
+$('#chatSend').onclick=send; $('#chatInput').onkeydown=e=>{ if(e.key==='Enter') send() };
+
+/* ---------- 관리자 모드 ---------- */
+const A={dept:'',status:'all',q:'',requestId:'',page:1,pageSize:15};
+const STATE={done:['b-done','✓ 제출완료'],pending:['b-normal','미제출'],overdue:['b-over','기한초과 미제출'],none:['b-none','요청 없음']};
+const lvl=r=>r>=80?'lv-hi':r>=60?'lv-mid':'lv-low';
+let lastDeptSig='';
+
+function fillDeptSelects(list, total){
+  const sig=JSON.stringify(list); if(sig===lastDeptSig) return; lastDeptSig=sig; depts=list;
+  const opts=list.map(d=>`<option value="${esc(d.dept)}">${esc(d.dept)} (${d.employees}명)</option>`).join('');
+  const keep={req:$('#reqDept').value,doc:$('#docTarget').value,f:$('#fDept').value};
+  $('#reqDept').innerHTML=`<option value="전체">전체 부서 (${total}명)</option>`+opts;
+  $('#docTarget').innerHTML=$('#reqDept').innerHTML;
+  $('#fDept').innerHTML=`<option value="">전체 부서</option>`+opts;
+  if(keep.req) $('#reqDept').value=keep.req; if(keep.doc) $('#docTarget').value=keep.doc; $('#fDept').value=A.dept;
+}
+function renderOverview(ov){
+  $('#kTotal').textContent=`${ov.totalEmployees}명`; $('#kTotalSub').textContent=`${ov.byDept.length}개 부서 · 사원 DB 실시간 연동`;
+  $('#kRate').textContent=`${ov.submitRate}%`; $('#kRateSub').textContent=`제출 ${ov.doneTasks} / 요청 ${ov.totalTasks}건`;
+  $('#kPending').textContent=`${ov.notSubmitted}명`; $('#kOverdue').textContent=`${ov.overdueTasks}건`;
+  fillDeptSelects(ov.byDept.map(d=>({dept:d.dept,employees:d.employees})), ov.totalEmployees);
+  $('#deptNote').textContent='부서를 누르면 사원 목록이 필터됩니다';
+  $('#deptList').innerHTML=[...ov.byDept].sort((a,b)=>b.rate-a.rate||b.employees-a.employees).map(d=>`
+    <button class="dept-row ${A.dept===d.dept?'sel':''}" data-dept="${esc(d.dept)}" aria-pressed="${A.dept===d.dept}">
+      <div class="dept-top"><b>${esc(d.dept)}</b><span class="muted">${d.employees}명</span><span class="rate" style="color:${d.rate>=80?'var(--green)':d.rate>=60?'var(--blue)':'var(--amber)'}">${d.rate}%</span></div>
+      <div class="pbar"><i class="${lvl(d.rate)}" style="width:${d.rate}%"></i></div>
+      <div class="dept-sub">제출 ${d.done}/${d.total}건 · 미제출 사원 ${d.pendingEmployees}명${d.overdue?` · <b>기한초과 ${d.overdue}건</b>`:''}</div>
+    </button>`).join('') || '<div class="muted">부서 데이터가 없습니다.</div>';
+  $('#reqRows').innerHTML=ov.requests.map(r=>`<tr data-req="${r.id}">
+    <td>${esc(String(r.createdAt).slice(5,16))}</td><td style="white-space:normal;min-width:220px"><b>${esc(r.title)}</b><div class="muted">${catLabel(r.cat)} · 요청 ${esc(r.requesterDept)}</div></td>
+    <td>${esc(r.targetDept)}</td><td>${esc(r.due)}</td>
+    <td><div class="mini"><div class="pbar"><i class="${lvl(r.rate)}" style="width:${r.rate}%"></i></div><span>${r.done}/${r.total}</span></div></td>
+    <td><button class="btn sm reqView" data-id="${r.id}">${A.requestId==r.id?'필터 해제':'보기'}</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">발송된 제출요청이 없습니다.</td></tr>';
+}
+function renderEmployees(list){
+  const s=list.summary;
+  $('#fStatus').innerHTML=[['all','전체',s.all],['pending','미제출',s.pending+s.overdue],['overdue','기한초과',s.overdue],['done','제출완료',s.done]]
+    .map(([k,l,n])=>`<button data-st="${k}" class="${A.status===k?'on':''}">${l}<b>${n}</b></button>`).join('');
+  const chips=[];
+  if(A.dept) chips.push(`<span class="fchip">부서: ${esc(A.dept)}<button data-clear="dept" aria-label="부서 필터 해제">×</button></span>`);
+  if(A.requestId){ const r=(window.__reqs||[]).find(x=>x.id==A.requestId); chips.push(`<span class="fchip">요청: ${esc(r?r.title:'#'+A.requestId)}<button data-clear="req" aria-label="요청 필터 해제">×</button></span>`); }
+  $('#fchips').innerHTML=chips.join('');
+  $('#empCount').textContent=`조건에 맞는 사원 ${list.total}명`;
+  $('#empRows').innerHTML=list.employees.map(e=>{
+    const [cls,label]=STATE[e.state]; const rate=e.total?Math.round(e.done/e.total*100):0;
+    return `<tr class="${me&&e.empNo===me.empNo?'me':''}" data-emp="${esc(e.empNo)}">
+      <td>${esc(e.empNo)}</td><td><b>${esc(e.name)}</b>${me&&e.empNo===me.empNo?' <span class="badge b-new" style="animation:none">로그인 중</span>':''}</td><td>${esc(e.dept)}</td>
+      <td>${e.total?`<div class="mini"><div class="pbar"><i class="${lvl(rate)}" style="width:${rate}%"></i></div><span>${e.done}/${e.total}</span></div>`:'<span class="muted">-</span>'}</td>
+      <td><span class="badge ${cls}">${label}</span></td><td>${esc(shortTime(e.lastSubmittedAt))}</td>
+      <td><button class="btn sm empView" data-emp="${esc(e.empNo)}">상세</button></td></tr>`;
+  }).join('') || '<tr><td colspan="7" class="muted" style="text-align:center;padding:26px">조건에 맞는 사원이 없습니다.</td></tr>';
+  const pages=Math.max(1,Math.ceil(list.total/list.pageSize)); A.page=Math.min(A.page,pages);
+  const from=list.total?(list.page-1)*list.pageSize+1:0;
+  $('#pgInfo').textContent=`${from}–${Math.min(list.page*list.pageSize,list.total)} / ${list.total}명 (${list.page}/${pages} 페이지)`;
+  $('#pgPrev').disabled=list.page<=1; $('#pgNext').disabled=list.page>=pages;
+}
+async function loadAdmin({quiet}={}){
+  const qs=new URLSearchParams({page:A.page,pageSize:A.pageSize,status:A.status});
+  if(A.dept) qs.set('dept',A.dept); if(A.q) qs.set('q',A.q); if(A.requestId) qs.set('requestId',A.requestId);
+  try{
+    const [ov,list]=await Promise.all([api('/api/admin/overview'),api('/api/admin/employees?'+qs)]);
+    window.__reqs=ov.requests; renderOverview(ov); renderEmployees(list);
+    $('#adminError').hidden=true; $('#adminLive').className='live';
+    $('#adminLive').innerHTML=`<i></i><span>사원 DB ${ov.totalEmployees}명 · 실시간 집계 (${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})})</span>`;
+  }catch(e){
+    $('#adminLive').className='live err'; $('#adminLive').innerHTML='<i></i><span>집계 실패</span>';
+    if(!quiet){ $('#adminError').hidden=false; $('#adminError').textContent='관리자 데이터를 불러오지 못했습니다: '+e.message; }
+  }
+}
+$('#adminRefresh').onclick=()=>loadAdmin();
+$('#deptList').onclick=e=>{ const b=e.target.closest('.dept-row'); if(!b) return; A.dept=A.dept===b.dataset.dept?'':b.dataset.dept; A.page=1; $('#fDept').value=A.dept; loadAdmin(); $('#empPanel').scrollIntoView({behavior:'smooth',block:'start'}); };
+$('#fDept').onchange=e=>{ A.dept=e.target.value; A.page=1; loadAdmin() };
+$('#fStatus').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; A.status=b.dataset.st; A.page=1; loadAdmin() };
+$('#fchips').onclick=e=>{ const b=e.target.closest('[data-clear]'); if(!b) return; if(b.dataset.clear==='dept'){A.dept='';$('#fDept').value=''} else A.requestId=''; A.page=1; loadAdmin() };
+let qTimer; $('#fQ').oninput=e=>{ clearTimeout(qTimer); qTimer=setTimeout(()=>{ A.q=e.target.value.trim(); A.page=1; loadAdmin() },250) };
+$('#pgPrev').onclick=()=>{ A.page=Math.max(1,A.page-1); loadAdmin() };
+$('#pgNext').onclick=()=>{ A.page+=1; loadAdmin() };
+$('#reqRows').onclick=e=>{ const b=e.target.closest('.reqView'); if(!b) return; A.requestId=A.requestId==b.dataset.id?'':b.dataset.id; A.page=1; loadAdmin(); if(A.requestId) $('#empPanel').scrollIntoView({behavior:'smooth',block:'start'}) };
+$('#empRows').onclick=async e=>{
+  const b=e.target.closest('.empView'); if(!b) return;
+  const cells=b.closest('tr').children;
+  try{
+    const list=await api('/api/tasks?empNo='+encodeURIComponent(b.dataset.emp));
+    openModal(`${cells[1].textContent.replace('로그인 중','').trim()} · ${cells[2].textContent} (${b.dataset.emp})`,
+      `<div class="muted" style="margin-bottom:12px">제출 ${list.filter(t=>t.status==='done').length} / 요청 ${list.length}건</div>`+
+      (list.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>업무명</th><th>마감일</th><th>상태</th></tr></thead><tbody>${list.map(t=>
+        `<tr><td style="white-space:normal;min-width:220px">${esc(t.title)}<div class="muted">${catLabel(t.cat)}</div>${t.status==='done'?certLine(t.cert):''}</td><td>${esc(t.due)}</td><td>${badge(t)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">할당된 업무가 없습니다.</div>'));
+  }catch(err){ toast('상세 조회 실패: '+err.message,'err'); }
+};
+
+// 관리자 → 직원: 제출요청 발송 → POST /api/tasks/bulk → 대상 부서 전원에게 사원별 업무 행 생성
+async function dispatchRequests(items, targetDept, sourceLabel){
+  const r=await api('/api/tasks/bulk',{method:'POST',body:JSON.stringify({tasks:items.map(i=>({...i,targetDept}))})});
+  const label=targetDept==='전체'?'전체 부서':targetDept;
+  const inTarget = targetDept==='전체' || (me && me.dept===targetDept);
+  const box=$('#sendResult'); box.hidden=false; box.className='sendbox'+(inTarget?'':' warn');
+  box.innerHTML=`<b>✓ ${esc(label)} 사원 ${r.requests[0].count}명에게 ${r.requests.length}건의 제출요청을 발송했습니다.</b><div class="muted" style="margin:4px 0 10px">${r.requests.map(x=>esc(x.title)).join(' · ')}</div>`+
+    (inTarget?`<button class="btn sm primary" id="goEmp">직원 모드에서 ${esc(me.name)}님의 목록 확인 →</button>`
+      :`<div class="muted" style="color:var(--amber)">현재 로그인 사원(${esc(me?me.name:'')}, ${esc(me?me.dept:'')})은 대상 부서가 아니어서 목록에 나타나지 않습니다. 직원 모드에서 사원 전환으로 ${esc(label)} 소속 사원을 선택해 확인하세요.</div><button class="btn sm" id="goEmp" style="margin-top:8px">직원 모드로 이동</button>`);
+  $('#goEmp').onclick=()=>setMode('employee');
+  toast(`${label} ${r.requests[0].count}명에게 발송 완료 (${sourceLabel})`,'ok');
+  await loadAdmin();
+  const row=$(`#reqRows tr[data-req="${r.requests[0].id}"]`); if(row) row.classList.add('flash');
+  return r;
+}
+$('#reqDue').min=ymd(today0()); { const d=today0(); d.setDate(d.getDate()+7); $('#reqDue').value=ymd(d); }
+$('#reqForm').onsubmit=async e=>{
+  e.preventDefault();
+  const title=$('#reqTitle').value.trim(), due=$('#reqDue').value, hint=$('#reqHint');
+  if(!title){ hint.textContent='업무명을 입력하세요.'; $('#reqTitle').focus(); return }
+  if(!due){ hint.textContent='마감일을 지정하세요.'; $('#reqDue').focus(); return }
+  if(due<ymd(today0())){ hint.textContent='마감일은 오늘 이후여야 합니다.'; $('#reqDue').focus(); return }
+  hint.textContent=''; $('#reqSend').disabled=true;
+  try{
+    await dispatchRequests([{title,cat:$('#reqCat').value,dept:$('#reqFrom').value.trim()||'총무인사팀',due}], $('#reqDept').value, '수동 입력');
+    $('#reqTitle').value='';
+  }catch(err){ hint.textContent=err.message; toast('발송 실패: '+err.message,'err'); }
+  finally{ $('#reqSend').disabled=false; }
+};
+
+/* ---------- 공문(OCR) → 제출요청 ---------- */
+function renderRecords(){
+  $('#records').innerHTML=records.map((r,i)=>`<tr>
+    <td><input type="checkbox" checked data-r="${i}" aria-label="선택"></td>
+    <td><input class="field" style="margin:0;min-width:240px" value="${esc(r.title)}" data-title="${i}"></td>
+    <td>${r.cat==='edu'?'교육':r.cat==='service'?'복무':'요구자료'}</td>
+    <td><input type="date" value="${esc(r.due)}" data-due="${i}"></td><td>${esc(r.dept)}</td></tr>`).join('');
+}
+async function analyzeText(text){
+  try{ records=[await api('/api/analyze',{method:'POST',body:JSON.stringify({text})})]; renderRecords(); }
+  catch(e){ toast('문서 분석 실패: '+e.message,'err'); }
+}
+$('#createBtn').onclick=async()=>{
+  $$('#records tr').forEach((row,i)=>{ const t=row.querySelector(`[data-title="${i}"]`), d=row.querySelector(`[data-due="${i}"]`); if(t) records[i].title=t.value; if(d) records[i].due=d.value; });
+  const chosen=records.filter((_,i)=>$(`[data-r="${i}"]`)?.checked);
+  if(!chosen.length) return toast('발송할 업무를 선택하세요.','err');
+  if(chosen.some(r=>!r.due)) return toast('마감일이 없는 항목이 있습니다. 마감일을 입력하세요.','err');
+  try{ await dispatchRequests(chosen.map(r=>({title:r.title,cat:r.cat,dept:r.dept,due:r.due,raw:r.raw})), $('#docTarget').value, '공문 OCR'); }
+  catch(e){ toast('발송 실패: '+e.message,'err'); }
+};
+$('#analyzeBtn').onclick=()=>{ const t=$('#docText').value.trim(); if(!t) return toast('파일을 업로드하거나 텍스트를 입력하세요.','err'); $('#preview').textContent=t; analyzeText(t); };
+async function loadDocText(f){
+  if(f.type==='text/plain'||/\.txt$/i.test(f.name)) return f.text();
+  $('#preview').textContent='OCR 처리 중... (최초 실행 시 언어 데이터 다운로드로 시간이 걸릴 수 있습니다)';
+  if(f.type==='application/pdf'||/\.pdf$/i.test(f.name)){
+    const pdf=await readPdf(f); if(pdf.text) return pdf.text;
+    if(!pdf.canvas) throw new Error('PDF를 이미지로 변환하지 못했습니다'); return ocrImage(pdf.canvas);
+  }
+  return ocrImage(f);
+}
+async function handleDocFile(f){
+  try{ const text=await loadDocText(f); $('#docText').value=text; $('#preview').textContent=text; analyzeText(text); }
+  catch(e){ $('#preview').textContent=''; toast('공문 OCR 실패: '+e.message+' — 텍스트를 직접 붙여 넣어 주세요.','err'); }
+}
+$('#docFile').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(f) handleDocFile(f) };
+['dragover','dragenter'].forEach(x=>$('#docDrop').addEventListener(x,e=>{ e.preventDefault(); $('#docDrop').classList.add('over') }));
+$('#docDrop').addEventListener('dragleave',()=>$('#docDrop').classList.remove('over'));
+$('#docDrop').addEventListener('drop',e=>{ e.preventDefault(); $('#docDrop').classList.remove('over'); const f=e.dataTransfer.files[0]; if(f) handleDocFile(f) });
+
+/* ================= 수료증 OCR 파이프라인 (직원 모드) ================= */
+let ocrWorkerPromise=null, ocrProgress=()=>{};
+function getOcrWorker(){
+  if(typeof Tesseract==='undefined') return Promise.reject(new Error('Tesseract.js를 불러오지 못했습니다(인터넷 연결 확인)'));
+  if(!ocrWorkerPromise){
+    ocrWorkerPromise=Tesseract.createWorker(['kor','eng'],1,{logger:m=>ocrProgress(m)}).catch(e=>{ ocrWorkerPromise=null; throw e; });
+  }
+  return ocrWorkerPromise;
+}
+async function ocrImage(source,onProgress){
+  ocrProgress=onProgress||(()=>{});
+  const worker=await getOcrWorker(); const {data}=await worker.recognize(source); return data.text||'';
+}
+async function ensurePdfWorker(){
+  if(typeof pdfjsLib==='undefined') throw new Error('pdf.js를 불러오지 못했습니다(인터넷 연결 확인)');
+  if(pdfjsLib.GlobalWorkerOptions.workerSrc) return;
+  const blob=await (await fetch(PDF_WORKER_URL)).blob();
+  pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(blob);
+}
+async function readPdf(file){
+  await ensurePdfWorker();
+  const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+  let text='';
+  for(let p=1;p<=Math.min(pdf.numPages,2);p++){
+    const tc=await (await pdf.getPage(p)).getTextContent();
+    text+=tc.items.map(i=>i.str+(i.hasEOL?'\n':' ')).join('')+'\n';
+  }
+  const hasText=text.replace(/[ \t\n]+/g,'').length>=30;
+  const page=await pdf.getPage(1), vp=page.getViewport({scale:2});
+  const canvas=document.createElement('canvas'); canvas.width=vp.width; canvas.height=vp.height;
+  // 페이지 렌더링은 requestAnimationFrame에 의존해 백그라운드 탭에서는 멈출 수 있다.
+  // 텍스트 레이어가 있으면 썸네일용 best-effort(3초), 스캔본이면 OCR에 필수이므로 30초까지 대기.
+  const rendering=page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;
+  const limit=ms=>new Promise((_,rej)=>setTimeout(()=>rej(new Error('PDF 페이지 렌더링 시간 초과(탭이 백그라운드일 수 있음)')),ms));
+  let rendered=true;
+  try{ await Promise.race([rendering,limit(hasText?3000:30000)]); }catch(e){ if(!hasText) throw e; rendered=false; }
+  return {canvas:rendered?canvas:null,text:hasText?text:''};
+}
+const canvasToBlob=c=>new Promise(r=>c.toBlob(r,'image/png'));
+
+const L_COURSE='교\\s*육\\s*명|교\\s*육\\s*과\\s*정\\s*명?|과\\s*정\\s*명|과\\s*목\\s*명|교\\s*육\\s*과\\s*목';
+const L_ISSUER='발\\s*급\\s*기\\s*관|발\\s*급\\s*처|교\\s*육\\s*기\\s*관|수\\s*료\\s*기\\s*관|주\\s*관\\s*기\\s*관|주\\s*관|기\\s*관\\s*명';
+const L_DATE='이\\s*수\\s*일\\s*자?|수\\s*료\\s*일\\s*자?|교\\s*육\\s*기\\s*간|교\\s*육\\s*일\\s*자|발\\s*급\\s*일\\s*자?';
+const labelRe=l=>new RegExp(`^\\s*(?:${l})\\s*(?:[:：;]\\s*|\\s+)(\\S.*)$`);
+const DATE_RE=/(20\d{2})\s*[년.\-\/]\s*(\d{1,2})\s*[월.\-\/]\s*(\d{1,2})/g;
+const TOPIC_RE=/(정보\s*보안|개인\s*정보|청렴|성희롱|성폭력|산업\s*안전|장애인|괴롭힘|부패\s*방지|윤리|인권|저작권|재난|소방|응급|안전|보안)/;
+const ORG_RE=/(진흥원|공단|연수원|개발원|협회|센터|대학교?|공사|교육원|아카데미|재단|연구원|팀|부|실|원)\s*$/;
+function lastDate(str){
+  let m,last=null; DATE_RE.lastIndex=0; while((m=DATE_RE.exec(str))) last=m;
+  return last?`${last[1]}-${String(last[2]).padStart(2,'0')}-${String(last[3]).padStart(2,'0')}`:'';
+}
+const tidy=s=>s.replace(/[|_\[\]{}<>「」『』"]/g,' ').replace(/\s{2,}/g,' ').trim();
+function extractCert(raw){
+  const lines=raw.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const out={courseName:'',issuer:'',completedDate:''};
+  const reC=labelRe(L_COURSE),reI=labelRe(L_ISSUER),reD=labelRe(L_DATE);
+  for(const l of lines){
+    let m;
+    if(!out.courseName&&(m=l.match(reC))) out.courseName=tidy(m[1]);
+    else if(!out.issuer&&(m=l.match(reI))) out.issuer=tidy(m[1]);
+    else if(!out.completedDate&&(m=l.match(reD))) out.completedDate=lastDate(m[1]);
+  }
+  if(!out.courseName){
+    const l=lines.find(l=>/(교육|연수|과정)/.test(l)&&TOPIC_RE.test(l)&&!/(위\s*사람|수여|이수하|성실)/.test(l));
+    if(l) out.courseName=tidy(l.replace(/^.*?[:：]\s*/,''));
+  }
+  if(!out.issuer){
+    const l=[...lines].reverse().find(l=>ORG_RE.test(l.replace(/\s*(원장|장|대표|귀하)\s*\S*$/,''))&&l!==out.courseName&&!/(교육|과정)/.test(l));
+    if(l) out.issuer=tidy(l.replace(/\s*(원장|장|대표)\s*\S*$/,''));
+  }
+  if(!out.completedDate) out.completedDate=lastDate(raw);
+  return out;
+}
+
+const sampleText=()=>`수료증\n교육명 : 2026년 하반기 정보보안 교육\n발급기관 : 경기도경제과학진흥원\n이수일자 : 2026년 9월 18일\n성명 : ${me.name}\n위 사람은 위 교육과정을 성실히 이수하였기에 이 증서를 수여합니다.`;
+async function makeSampleCertCanvas(){
+  const c=document.createElement('canvas'); c.width=1200; c.height=800;
+  const g=c.getContext('2d'); const F='"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif';
+  g.fillStyle='#fff'; g.fillRect(0,0,c.width,c.height);
+  g.strokeStyle='#0b2a5b'; g.lineWidth=8; g.strokeRect(30,30,1140,740); g.lineWidth=2; g.strokeRect(50,50,1100,700);
+  g.fillStyle='#111'; g.textBaseline='alphabetic';
+  g.font=`bold 84px ${F}`; g.textAlign='center'; g.fillText('수료증',600,190);
+  g.textAlign='left'; g.font=`44px ${F}`;
+  [['교육명','2026년 하반기 정보보안 교육'],['발급기관','경기도경제과학진흥원'],['이수일자','2026년 9월 18일'],['성명',me.name]].forEach(([k,v],i)=>g.fillText(`${k} : ${v}`,110,320+i*84));
+  g.font=`34px ${F}`; g.textAlign='center';
+  g.fillText('위 사람은 위 교육과정을 성실히 이수하였기에',600,690); g.fillText('이 증서를 수여합니다.',600,738);
+  g.fillStyle='#9ca3af'; g.font=`22px ${F}`; g.textAlign='right'; g.fillText('※ 시연용 샘플 수료증',1130,110);
+  return c;
+}
+
+const STEPS=['파일 읽기','OCR 텍스트 인식 (Tesseract.js)','교육명 · 발급기관 · 이수일자 추출','DB 매칭 및 제출 완료 처리'];
+function initFlow(thumbHtml){
+  $('#ocrFlow').hidden=false; $('#ocrThumb').innerHTML=thumbHtml||'<span class="muted">미리보기</span>'; $('#ocrBar').style.width='0';
+  $('#ocrCand').innerHTML=''; $('#certResult').textContent='';
+  $('#ocrSteps').innerHTML=STEPS.map((s,i)=>`<li data-s="${i}"><span class="dot"></span><span>${s}<small></small></span></li>`).join('');
+  renderFields(null);
+}
+function setStep(i,state,detail){
+  const li=$(`#ocrSteps [data-s="${i}"]`); if(!li) return; li.className=state;
+  if(state==='done') li.querySelector('.dot').textContent='✓'; if(state==='err') li.querySelector('.dot').textContent='!';
+  if(detail!==undefined) li.querySelector('small').textContent=detail;
+}
+function renderFields(f){
+  const box=(k,label)=>{ const v=f?.[k]; return `<div class="fbox ${f?(v?'ok':'miss'):''}"><span>${label}</span><b>${f?(v?esc(v):'미검출'):'—'}</b></div>`; };
+  $('#ocrFields').innerHTML=box('courseName','교육명')+box('issuer','발급기관')+box('completedDate','이수일자');
+}
+const setBar=p=>{ $('#ocrBar').style.width=Math.round(p*100)+'%' };
+let pipelineBusy=false;
+function setBusy(b){ pipelineBusy=b; $$('.demoCertBtn').forEach(x=>x.disabled=b) }
+
+async function submitCert({blob,fileName,fields,ocrText,taskId}){
+  const fd=new FormData();
+  if(blob) fd.append('file',blob,fileName);
+  fd.append('empNo',me.empNo); fd.append('fileName',fileName||'');
+  fd.append('courseName',fields.courseName||''); fd.append('issuer',fields.issuer||'');
+  fd.append('completedDate',fields.completedDate||''); fd.append('ocrText',ocrText||'');
+  if(taskId) fd.append('taskId',taskId);
+  return api('/api/tasks/cert-upload',{method:'POST',body:fd});
+}
+async function finishSuccess(r,fields){
+  setStep(3,'done',`「${r.matchedTask.title}」 → 제출완료 (${r.matchedBy==='keyword'?'키워드 자동 매칭':r.matchedBy==='manual-select'?'직접 선택':'유일한 대기 업무'})`);
+  setBar(1); await loadTasks();
+  const el=$(`[data-card="${r.matchedTask.id}"]`); if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.add('flash'); }
+  $('#certResult').textContent=`✓ ${r.fileName||'수료증'} 분석 완료 · ${r.matchedTask.title} 제출완료 처리`;
+  addMsg(`✅ <b>${esc(r.matchedTask.title)}</b> 건이 제출 완료 처리되었습니다.<br><span class="muted">교육명 ${esc(fields.courseName||'-')} · 발급기관 ${esc(fields.issuer||'-')} · 이수일자 ${esc(fields.completedDate||'-')}</span>`);
+  toast('수료증이 자동 인식되어 제출 완료 처리되었습니다.','ok');
+}
+async function submitStep(ctx){
+  setStep(3,'active','서버에 매칭 요청 중...');
+  try{ await finishSuccess(await submitCert(ctx),ctx.fields); }
+  catch(e){
+    if(e.status===422&&e.data?.candidates){
+      setStep(3,'err','자동 매칭 불가 — 아래에서 해당 업무를 선택하세요');
+      $('#ocrCand').innerHTML=`<div class="cand-note">${esc(e.data.error)}</div><div class="cand">`+e.data.candidates.map(c=>`<button class="btn sm pick" data-id="${c.id}">${esc(c.title)}</button>`).join('')+`</div>`;
+      $$('#ocrCand .pick').forEach(b=>b.onclick=async()=>{
+        $('#ocrCand').innerHTML=''; setStep(3,'active','선택한 업무로 제출 중...');
+        try{ await finishSuccess(await submitCert({...ctx,taskId:b.dataset.id}),ctx.fields); }
+        catch(err){ setStep(3,'err',err.message); $('#certResult').textContent='✗ '+err.message; }
+      });
+    }else{
+      setStep(3,'err',e.message); $('#certResult').textContent='✗ 제출 실패: '+e.message;
+      addMsg('⚠ 수료증 자동 제출에 실패했습니다: '+esc(e.message));
+    }
+  }
+}
+async function runCertPipeline(file){
+  if(pipelineBusy||!me) return; setBusy(true);
+  const isPdf=file.type==='application/pdf'||/\.pdf$/i.test(file.name);
+  initFlow(isPdf?'<span class="muted">PDF</span>':`<img src="${URL.createObjectURL(file)}" alt="">`);
+  addMsg(`📄 <b>${esc(file.name)}</b> 수료증을 분석합니다.`);
+  let ocrText='',source=file,blob=file;
+  try{
+    setStep(0,'active');
+    if(isPdf){
+      const pdf=await readPdf(file);
+      if(pdf.canvas) $('#ocrThumb').innerHTML=`<img src="${pdf.canvas.toDataURL('image/png')}" alt="">`;
+      source=pdf.canvas; ocrText=pdf.text;
+      setStep(0,'done',pdf.text?'PDF 텍스트 레이어 감지':'스캔본 PDF — 이미지로 변환');
+    }else setStep(0,'done',`${(file.size/1024).toFixed(0)}KB`);
+    if(ocrText){ setStep(1,'done','텍스트 레이어를 그대로 사용 (OCR 생략)'); setBar(.7); }
+    else{
+      setStep(1,'active','언어 데이터 준비 중 (최초 1회 다운로드)...'); $('#ocrThumb').classList.add('scan');
+      ocrText=await ocrImage(source,m=>{
+        if(m.status==='recognizing text'){ setBar(.1+m.progress*.6); setStep(1,'active',`인식 중 ${Math.round(m.progress*100)}%`); }
+        else if(m.status) setStep(1,'active',m.status.includes('load')||m.status.includes('init')?'엔진/언어 데이터 로딩...':m.status);
+      });
+      $('#ocrThumb').classList.remove('scan'); setStep(1,'done',`${ocrText.replace(/\s/g,'').length}자 인식`);
+    }
+    setStep(2,'active'); const fields=extractCert(ocrText); renderFields(fields);
+    const found=[fields.courseName,fields.issuer,fields.completedDate].filter(Boolean).length;
+    setStep(2,found?'done':'err',`${found}/3 항목 추출`);
+    if(!found) addMsg('⚠ 수료증에서 항목을 읽지 못했습니다. 파일명/원문 키워드로 매칭을 시도합니다.');
+    await submitStep({blob,fileName:file.name,fields,ocrText});
+  }catch(e){
+    $('#ocrThumb').classList.remove('scan');
+    const idx=$$('#ocrSteps li.active')[0]?.dataset.s; setStep(idx!==undefined?Number(idx):1,'err',e.message);
+    $('#certResult').textContent='✗ 처리 실패: '+e.message; addMsg('⚠ 수료증 처리 중 오류: '+esc(e.message));
+  }finally{ setBusy(false); }
+}
+async function runDemo(){
+  if(pipelineBusy||!me) return; setBusy(true);
+  $('#certPanel').scrollIntoView({behavior:'smooth',block:'center'});
+  const canvas=await makeSampleCertCanvas();
+  initFlow(`<img src="${canvas.toDataURL('image/png')}" alt="샘플 수료증">`);
+  addMsg('🎬 <b>시연 모드</b> — 샘플 수료증을 업로드합니다.'); await sleep(700);
+  let ocrText='',fallback=false;
+  try{
+    setStep(0,'active'); await sleep(600); setStep(0,'done','sample_certificate.png (자동 생성)');
+    setStep(1,'active','언어 데이터 준비 중 (최초 1회 다운로드)...'); $('#ocrThumb').classList.add('scan');
+    try{
+      const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('OCR 시간 초과')),35000));
+      ocrText=await Promise.race([ocrImage(canvas,m=>{
+        if(m.status==='recognizing text'){ setBar(.1+m.progress*.6); setStep(1,'active',`인식 중 ${Math.round(m.progress*100)}%`); }
+        else if(m.status) setStep(1,'active','엔진/언어 데이터 로딩...');
+      }),timeout]);
+      if(!extractCert(ocrText).courseName) throw new Error('핵심 항목 미검출');
+      setStep(1,'done',`Tesseract.js 실제 인식 · ${ocrText.replace(/\s/g,'').length}자`);
+    }catch(e){
+      fallback=true; ocrText=sampleText(); await sleep(500);
+      setStep(1,'done',`⚠ 실제 OCR 불가(${e.message}) → 내장 샘플 텍스트로 시연 진행`); setBar(.7);
+    }
+    $('#ocrThumb').classList.remove('scan');
+    if(fallback) addMsg('ℹ️ 인터넷/OCR 엔진을 사용할 수 없어 <b>내장 샘플 텍스트</b>로 시연합니다. (실제 파일 업로드 시에는 Tesseract.js가 인식합니다)');
+    setStep(2,'active'); await sleep(500);
+    const fields=extractCert(ocrText), staged={courseName:'',issuer:'',completedDate:''};
+    for(const k of ['courseName','issuer','completedDate']){ staged[k]=fields[k]; renderFields({...staged}); await sleep(550); }
+    setStep(2,Object.values(fields).some(Boolean)?'done':'err',`${Object.values(fields).filter(Boolean).length}/3 항목 추출`); await sleep(500);
+    await submitStep({blob:await canvasToBlob(canvas),fileName:'sample_certificate.png',fields,ocrText});
+  }catch(e){
+    $('#ocrThumb').classList.remove('scan'); $('#certResult').textContent='✗ 시연 실패: '+e.message; addMsg('⚠ 시연 중 오류: '+esc(e.message));
+  }finally{ setBusy(false); }
+}
+$$('.demoCertBtn').forEach(b=>b.onclick=runDemo);
+$('#certFile').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(f) runCertPipeline(f) };
+['dragover','dragenter'].forEach(x=>$('#certDrop').addEventListener(x,e=>{ e.preventDefault(); $('#certDrop').classList.add('over') }));
+$('#certDrop').addEventListener('dragleave',()=>$('#certDrop').classList.remove('over'));
+$('#certDrop').addEventListener('drop',e=>{ e.preventDefault(); $('#certDrop').classList.remove('over'); const f=e.dataTransfer.files[0]; if(f) runCertPipeline(f) });
+
+/* ---------- 시연 초기화 ---------- */
+$$('.resetDemoBtn').forEach(b=>b.onclick=async()=>{
+  if(!confirm('시연 데이터를 처음 상태로 되돌립니다. 제출 이력과 발송한 제출요청이 모두 삭제됩니다. 계속할까요?')) return;
+  try{
+    await api('/api/demo/reset',{method:'POST'});
+    try{ Object.keys(localStorage).filter(k=>k.startsWith('gbsa.seen.')).forEach(k=>localStorage.removeItem(k)); }catch(e){}
+    seen=null; announced.clear(); tasks=[]; $('#ocrFlow').hidden=true; $('#certResult').textContent=''; $('#sendResult').hidden=true; A.requestId='';
+    await (mode==='admin'?loadAdmin():loadTasks());
+    toast('시연 데이터가 초기화되었습니다.','ok');
+  }catch(e){ toast('초기화 실패: '+e.message,'err'); }
+});
+
+/* ---------- 초기화 ---------- */
+async function init(){
+  try{
+    const r=await api('/api/employees'); // { success, employees:[{사번,사원명,부서명}] }
+    employees=r.employees.map(x=>({empNo:String(x.사번),name:x.사원명,dept:x.부서명}));
+    const saved=LS.get('gbsa.empNo');
+    me=employees.find(e=>e.empNo===saved)||await api('/api/me');
+    buildMeSelect(); renderMe(); welcome();
+  }catch(e){
+    $('#empError').hidden=false; $('#empError').textContent='사원 DB(employees.xlsx)를 불러오지 못했습니다: '+e.message;
+    $('#meName').textContent='사원 DB 오류'; $('#cards').innerHTML='';
+    return;
+  }
+  setMode(location.hash==='#admin'||LS.get('gbsa.mode')==='admin'&&location.hash!=='#employee'?'admin':'employee');
+  // 두 화면을 다른 탭/창에서 동시에 띄워도 10초마다 자동 갱신된다
+  setInterval(()=>{ if(document.hidden) return; mode==='admin'?loadAdmin({quiet:true}):loadTasks({quiet:true}); },10000);
+}
+init();
+</script>
+</body>
+</html>

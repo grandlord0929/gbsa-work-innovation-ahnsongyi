@@ -1,0 +1,21 @@
+# Render Blueprint — GitHub 저장소를 연결하면 이 파일대로 서비스가 만들어집니다.
+# Express가 API와 프론트(public/)를 함께 서빙하므로 서비스는 1개면 충분합니다.
+services:
+  - type: web
+    name: gbsa-reminder
+    runtime: node
+    plan: free
+    region: singapore          # 한국에서 가장 가까운 Render 리전
+    buildCommand: npm ci
+    startCommand: npm start    # employees.xlsx 가 없으면 가상 사원 200명 자동 생성 후 서버 시작
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "24"            # node:sqlite 는 Node 22.13+ 필요
+      - key: NODE_ENV
+        value: production
+      - key: BASIC_AUTH_USER
+        value: gbsa
+      - key: BASIC_AUTH_PASS
+        generateValue: true    # Render가 랜덤 암호 생성 → 대시보드 Environment 탭에서 확인해 팀에 공유

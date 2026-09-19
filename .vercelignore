@@ -1,0 +1,5 @@
+# Vercel에는 정적 프론트(public/)만 올린다. 백엔드/DB/사원명부는 업로드하지 않는다.
+*
+!public
+!public/**
+!vercel.json

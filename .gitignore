@@ -1,0 +1,29 @@
+# 의존성
+node_modules/
+
+# 사원 명부 (가상 DB 파일, 개인정보 형식) — 배포 시 scripts/ensure-employees.js 가 샘플 자동 생성
+employees.xlsx
+employees*.xlsx
+~$*.xlsx
+
+# 로컬 DB (SQLite) 및 백업/WAL
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# 환경변수 (비밀번호 등) — 예시는 .env.example 만 커밋
+.env
+.env.*
+!.env.example
+
+# 업로드된 수료증 등
+uploads/
+data/uploads/
+
+# 로그 / OS / 배포 도구 산출물
+*.log
+.DS_Store
+Thumbs.db
+.vercel/

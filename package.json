@@ -1,0 +1,20 @@
+{
+  "name": "gbsa-reminder-backend",
+  "version": "1.0.0",
+  "description": "GBSA 지능형 통합 업무 리마인더 시스템 - 백엔드 API + 프론트 (Express + SQLite)",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/ensure-employees.js && node server.js",
+    "dev": "node --env-file-if-exists=.env scripts/ensure-employees.js && node --env-file-if-exists=.env server.js"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "multer": "^2.0.1",
+    "xlsx": "^0.18.5"
+  }
+}
