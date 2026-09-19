@@ -8,7 +8,8 @@
     "start": "node server.js",
     "dev": "node --env-file-if-exists=.env server.js",
     "seed": "node --env-file-if-exists=.env scripts/seedSupabase.js",
-    "test": "node --test \"test/*.test.js\""
+    "test": "node --test \"test/*.test.js\"",
+    "db:check": "node --env-file-if-exists=.env scripts/checkSupabase.js"
   },
   "engines": {
     "node": "24.x"
