@@ -7,7 +7,14 @@ const express = require('express');
 const cors = require('cors');
 const { basicAuth, securityHeaders, assertProductionSafe } = require('./lib/security');
 
-assertProductionSafe(); // 운영 환경에서 접근 암호 없이 공개되는 것을 차단
+// 운영 환경에서 접근 암호 없이 공개되는 것을 차단. 직접 실행(로컬/Render)이면 메시지만 출력하고 종료,
+// Vercel 에서는 예외가 api/index.js 로 전달되어 오류 응답으로 노출된다.
+try {
+  assertProductionSafe();
+} catch (e) {
+  if (require.main === module) { console.error('❌ ' + e.message); process.exit(1); }
+  throw e;
+}
 
 // 사원명부(employees.xlsx)는 Git에 없으므로 없으면 가상 사원 200명을 생성 (Vercel 은 /tmp 에 생성)
 require('./scripts/ensure-employees').ensureEmployees();
@@ -40,6 +47,10 @@ if (process.env.BASIC_AUTH_PASS) {
 app.use(express.json({ limit: '5mb' }));
 
 app.get('/api/health', (req, res) => res.json({ ok: true, service: 'gbsa-reminder-backend' }));
+
+// 접근 암호 로그인 진입점: 브라우저 주소창 이동(top-level)으로 접근하면 인증 창이 확실히 뜨고,
+// 인증에 성공하면 화면으로 돌려보낸다. (Vercel 은 화면이 CDN 정적이라 API 호출로만 인증이 걸리기 때문)
+app.get('/api/login', (req, res) => res.redirect('/'));
 // ==========================================
 // [추가] 엑셀 사원 DB 조회를 위한 API 엔드포인트
 // ==========================================
