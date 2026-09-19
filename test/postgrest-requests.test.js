@@ -128,3 +128,47 @@ test('업무 시드: requests 는 id 를 돌려받고, tasks 는 500건씩 나�
 test('요청 헤더/본문에 서비스 키가 한 번도 실리지 않는다(헤더 제외)', () => {
   for (const r of sent) { assert.equal(r.url.includes(KEY), false); assert.equal(JSON.stringify(r.body || '').includes(KEY), false); }
 });
+
+// ---- SUPABASE_URL 입력 실수에 대한 방어 (대시보드 'REST URL' 복사 등) ----
+async function requestPathFor(rawUrl) {
+  const saved = process.env.SUPABASE_URL;
+  process.env.SUPABASE_URL = rawUrl;
+  client.__setClientForTests(null);
+  sent.length = 0; data.invalidateEmployees();
+  try { await data.listEmployees(); return last(); }
+  finally { process.env.SUPABASE_URL = saved; client.__setClientForTests(null); data.invalidateEmployees(); }
+}
+
+test('SUPABASE_URL 에 /rest/v1 이 붙어 있어도 경로가 이중으로 만들어지지 않는다', async () => {
+  for (const raw of ['https://example-project.supabase.co/rest/v1', 'https://example-project.supabase.co/rest/v1/', 'https://example-project.supabase.co/', 'https://example-project.supabase.co/dashboard?x=1']) {
+    const r = await requestPathFor(raw);
+    assert.equal(r.u.origin, 'https://example-project.supabase.co', raw);
+    assert.equal(r.u.pathname, '/rest/v1/employees', raw);
+  }
+});
+
+test('SUPABASE_URL 앞뒤 공백/줄바꿈/따옴표/프로토콜 누락도 보정한다', async () => {
+  for (const raw of ['  https://example-project.supabase.co\n', '"https://example-project.supabase.co"', "'https://example-project.supabase.co/rest/v1'", 'example-project.supabase.co']) {
+    const r = await requestPathFor(raw);
+    assert.equal(r.u.origin, 'https://example-project.supabase.co', JSON.stringify(raw));
+    assert.equal(r.u.pathname, '/rest/v1/employees', JSON.stringify(raw));
+  }
+});
+
+test('잘못된 URL 은 503 안내 오류, 설정 상태 요약은 값을 노출하지 않는다', async () => {
+  await assert.rejects(() => requestPathFor('http://'), (e) => e.status === 503 && /SUPABASE_URL 형식/.test(e.message));
+  process.env.SUPABASE_URL = 'https://example-project.supabase.co/rest/v1';
+  const d = client.describeSupabaseEnv();
+  assert.deepEqual(d, { SUPABASE_URL: true, SUPABASE_KEY: true, urlValid: true, urlHadExtraPath: true });
+  assert.equal(JSON.stringify(d).includes('example-project'), false);
+  assert.equal(JSON.stringify(d).includes(KEY), false);
+  process.env.SUPABASE_URL = 'https://example-project.supabase.co';
+  assert.equal(client.describeSupabaseEnv().urlHadExtraPath, false);
+});
+
+test('Supabase 오류 코드별 안내 문구 (경로 오류 / 키 오류)', () => {
+  assert.throws(() => client.must({ error: { code: 'PGRST125', message: 'Invalid path specified in request URL' } }, 'employees 조회'),
+    (e) => e.status === 503 && /SUPABASE_URL/.test(e.message));
+  assert.throws(() => client.must({ error: { message: 'Invalid API key' } }, 'x'), (e) => e.status === 500 && /service_role/.test(e.message));
+  assert.throws(() => client.must({ error: { code: 'PGRST205', message: "Could not find the table 'public.tasks' in the schema cache" } }, 'x'), (e) => /schema\.sql/.test(e.message));
+});

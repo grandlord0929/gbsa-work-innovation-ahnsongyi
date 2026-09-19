@@ -2,7 +2,7 @@
 //  - 키 종류(service_role / anon / 새 형식 sb_secret_·sb_publishable_)와 URL 일치 여부
 //  - 테이블 5개 접근 가능 여부와 행 수
 //  - 사원/업무 데이터 정합성(200명, 부서 분포, 업무 수, 제출 수)
-const { getSupabase } = require('../lib/supabaseClient');
+const { getSupabase, describeSupabaseEnv } = require('../lib/supabaseClient');
 
 const TABLES = ['employees', 'requests', 'tasks', 'submissions', 'chat_logs'];
 const mask = (s) => (s.length <= 8 ? '****' : `${s.slice(0, 4)}…${s.slice(-3)}`);
@@ -31,7 +31,7 @@ async function main() {
   const host = (() => { try { return new URL(url).host; } catch { return null; } })();
   console.log(`URL   : ${host ? `${url.startsWith('https') ? 'https' : 'http'}://${mask(host)}` : '❌ URL 형식 오류'}`);
   if (!host) process.exit(1);
-  if (/\/rest\/v1|\/$/.test(new URL(url).pathname) && new URL(url).pathname !== '/') console.log('⚠️  URL 에 경로가 포함돼 있습니다. https://<ref>.supabase.co 형태(경로 없음)여야 합니다.');
+  if (describeSupabaseEnv().urlHadExtraPath) console.log('⚠️  SUPABASE_URL 에 경로(/rest/v1 등)가 붙어 있습니다. 코드가 자동으로 무시하지만 https://<ref>.supabase.co 형태로 고치세요. (Vercel 등 배포 환경 값도 확인)');
 
   const k = describeKey(key);
   console.log(`KEY   : ${mask(key)}  → ${k.kind}`);
