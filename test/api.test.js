@@ -81,7 +81,7 @@ test('직원 → 관리자: 제출완료가 부서 제출률·사원 표에 반�
   const before = (await api('/api/admin/overview')).body;
   const b0 = before.byDept.find((d) => d.dept === '바이오센터');
   const mine = (await api('/api/tasks?empNo=GBSA2026001')).body;
-  const target = mine.find((t) => t.status !== 'done');
+  const target = mine.find((t) => t.status !== 'done' && t.cat !== 'edu'); // 교육 수료증 업무는 수동 제출 불가
 
   const s1 = await api(`/api/tasks/${target.id}/submit`, { method: 'POST' });
   assert.equal(s1.status, 200); assert.equal(s1.body.status, 'done');
@@ -127,9 +127,12 @@ test('1000행 제한: 업무가 1000건을 넘어도 관리자 집계가 전부 
   assert.equal(ov.byDept.reduce((n, d) => n + d.total, 0), 1201);
 });
 
-function certForm(fields, name = '수료증.png') {
+// person: 수료증에 적힌 성명(OCR 원문에 '성명 : …' 줄로 추가). 기본은 로그인 사원(홍길동). null 이면 성명 줄 없음.
+function certForm(fields, name = '수료증.png', person = '홍길동') {
+  const f = { ...fields };
+  if (person) f.ocrText = `${f.ocrText || ''}\n성명 : ${person}`.trim();
   const fd = new FormData();
-  Object.entries(fields).forEach(([k, v]) => fd.append(k, v));
+  Object.entries(f).forEach(([k, v]) => fd.append(k, v));
   fd.append('file', new Blob(['x'], { type: 'image/png' }), name);
   return fd;
 }
@@ -185,7 +188,7 @@ test('업무 수정/삭제 검증', async () => {
 
 test('시연 초기화: 이력 삭제 후 초기 시드로 복원(사원 유지)', async () => {
   await post('/api/tasks/bulk', { tasks: [{ title: '임시', cat: 'doc', due: '2099-01-01', targetDept: '전체' }] });
-  const t = (await api('/api/tasks?empNo=GBSA2026001')).body.find((x) => x.status !== 'done');
+  const t = (await api('/api/tasks?empNo=GBSA2026001')).body.find((x) => x.status !== 'done' && x.cat !== 'edu');
   await api(`/api/tasks/${t.id}/submit`, { method: 'POST' });
   await post('/api/chat', { question: '미제출 목록' });
   const r = await api('/api/demo/reset', { method: 'POST' });
@@ -252,4 +255,103 @@ test('xlsx / sqlite 모듈을 더 이상 불러오지 않는다', () => {
   for (const f of ['../server', '../lib/handler', '../lib/data', '../lib/seedData']) {
     assert.doesNotMatch(fs.readFileSync(require.resolve(f), 'utf8'), /node:sqlite|require\('xlsx'\)|excelDb/);
   }
+});
+
+// =================== 본인 성명 검증 (타인 수료증 제출 차단) ===================
+const nameOf = (empNo) => fake._tables.employees.find((e) => e.emp_no === empNo).name;
+const uploadAs = (empNo, person, fields = {}, fileName) =>
+  api('/api/tasks/cert-upload', { method: 'POST', body: certForm({ empNo, courseName: '2026년 하반기 정보보안 교육', ocrText: '정보보안 교육', ...fields }, fileName, person) });
+const stateOf = (empNo) => ({
+  done: fake._tables.tasks.filter((t) => t.emp_no === empNo && t.status === 'done').length,
+  subs: fake._tables.submissions.length,
+});
+
+test('타인의 수료증(성명 불일치)은 403 NAME_MISMATCH 로 거부되고 DB 는 그대로다', async () => {
+  const emp = fake._tables.employees.find((e) => e.name !== '강하율' && e.emp_no !== 'GBSA2026001');
+  const before = stateOf(emp.emp_no);
+  const r = await uploadAs(emp.emp_no, '강하율');
+  assert.equal(r.status, 403);
+  assert.equal(r.body.code, 'NAME_MISMATCH');
+  assert.equal(r.body.isNameMatched, false);
+  assert.equal(r.body.matchedName, '강하율');
+  assert.equal(r.body.expectedName, emp.name);
+  assert.equal(r.body.error, `⚠️ 제출자 성명('${emp.name}')과 수료증 상 성명('강하율')이 일치하지 않습니다.`);
+  assert.deepEqual(stateOf(emp.emp_no), before); // 제출완료·제출이력 모두 변화 없음
+});
+
+test('성명 불일치는 taskId 를 직접 지정해도 우회할 수 없다', async () => {
+  const pending = (await api('/api/tasks?empNo=GBSA2026001')).body.find((t) => t.cat === 'edu');
+  const before = stateOf('GBSA2026001');
+  const r = await uploadAs('GBSA2026001', '강하율', { taskId: String(pending.id) });
+  assert.equal(r.status, 403);
+  assert.deepEqual(stateOf('GBSA2026001'), before);
+});
+
+test('수료증에서 성명을 읽지 못하면 403 NAME_UNVERIFIED (본인 확인 불가)', async () => {
+  const before = stateOf('GBSA2026001');
+  const r = await uploadAs('GBSA2026001', null);
+  assert.equal(r.status, 403);
+  assert.equal(r.body.code, 'NAME_UNVERIFIED');
+  assert.match(r.body.error, /검증할 수 없습니다/);
+  assert.deepEqual(stateOf('GBSA2026001'), before);
+});
+
+test('성명이 일치하면 제출되고, 공백/줄바꿈으로 흩어진 성명도 일치로 본다', async () => {
+  const r = await uploadAs('GBSA2026001', '홍 길 동');
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.nameCheck, { isNameMatched: true, matchedName: '홍길동', expectedName: '홍길동' });
+  assert.equal(r.body.matchedTask.status, 'done');
+});
+
+test('원문에 성명 라벨이 없어도 본인 이름이 원문에 있으면 확인, 타인 이름만 있으면 미확인', async () => {
+  const ok = await api('/api/tasks/cert-upload', { method: 'POST', body: certForm({ empNo: 'GBSA2026001', courseName: '정보보안', ocrText: '수료증\n정보보안 교육\n홍길동 귀하' }, '수료증.png', null) });
+  assert.equal(ok.status, 200);
+  const bad = await api('/api/tasks/cert-upload', { method: 'POST', body: certForm({ empNo: 'GBSA2026001', courseName: '개인정보', ocrText: '수료증\n개인정보보호 교육\n강하율 귀하' }, '수료증.png', null) });
+  assert.equal(bad.status, 403); assert.equal(bad.body.code, 'NAME_UNVERIFIED');
+});
+
+test('성명 검증 우회 시도: certName 을 본인 이름으로 위조하면 OCR 원문과 달라 400', async () => {
+  const r = await api('/api/tasks/cert-upload', { method: 'POST', body: certForm({ empNo: 'GBSA2026001', courseName: '정보보안', ocrText: '정보보안', certName: '홍길동' }, '수료증.png', '강하율') });
+  assert.equal(r.status, 400);
+  assert.equal(r.body.code, 'NAME_TAMPERED');
+  assert.equal(fake._tables.submissions.length, 0);
+});
+
+test('한 글자 차이(OCR 오인식 가능성)도 제출은 거부하되 안내 문구가 붙는다', async () => {
+  const r = await uploadAs('GBSA2026001', '홍길둥');
+  assert.equal(r.status, 403);
+  assert.equal(r.body.similar, true);
+  assert.match(r.body.error, /OCR 오인식/);
+});
+
+test('교육 수료증 업무는 [제출완료] 수동 제출로 성명 검증을 우회할 수 없다 (403 CERT_REQUIRED)', async () => {
+  const edu = (await api('/api/tasks?empNo=GBSA2026001')).body.find((t) => t.cat === 'edu' && t.status !== 'done');
+  const r = await api(`/api/tasks/${edu.id}/submit`, { method: 'POST' });
+  assert.equal(r.status, 403);
+  assert.equal(r.body.code, 'CERT_REQUIRED');
+  assert.equal((await api(`/api/tasks/${edu.id}`)).body.status !== 'done', true);
+  assert.equal(fake._tables.submissions.length, 0);
+  // 수료증 필드를 함께 보내 우회하려는 시도도 동일하게 거부
+  const sneaky = await post(`/api/tasks/${edu.id}/submit`, { courseName: '정보보안', ocrText: '성명 : 홍길동' });
+  assert.equal(sneaky.status, 403);
+  // 운영자가 명시적으로 허용한 경우에만 수동 제출 가능
+  process.env.ALLOW_MANUAL_EDU_SUBMIT = 'true';
+  try { assert.equal((await api(`/api/tasks/${edu.id}/submit`, { method: 'POST' })).status, 200); } finally { delete process.env.ALLOW_MANUAL_EDU_SUBMIT; }
+});
+
+test('수동 제출은 수료증 OCR 필드를 기록하지 않는다 (검증되지 않은 값이 OCR 자동 제출처럼 보이지 않게)', async () => {
+  const doc = (await api('/api/tasks?empNo=GBSA2026001')).body.find((t) => t.cat === 'doc' && t.status !== 'done');
+  const r = await post(`/api/tasks/${doc.id}/submit`, { courseName: '위조 교육명', issuer: '위조 기관', completedDate: '2026-01-01', ocrText: '성명 : 홍길동' });
+  assert.equal(r.status, 200); assert.equal(r.body.status, 'done'); assert.equal(r.body.cert, null);
+  const sub = fake._tables.submissions.at(-1);
+  assert.equal(sub.match_method, 'manual');
+  assert.deepEqual([sub.course_name, sub.issuer, sub.completed_date, sub.ocr_text], [null, null, null, null]);
+});
+
+test('여러 줄 교육명은 서버 매칭·이력에 공백 정규화된 한 줄로 저장된다', async () => {
+  const wrapped = '2026년 하반기 개인정보보호 및 정보\n보안 교육';
+  const r = await api('/api/tasks/cert-upload', { method: 'POST', body: certForm({ empNo: 'GBSA2026001', courseName: wrapped.replace(/\s+/g, ' '), ocrText: `교육명 : ${wrapped}\n발급기관 : 경기도경제과학진흥원` }) });
+  assert.ok([200, 422].includes(r.status)); // 개인정보/정보보안 키워드가 모두 있어 업무 특정이 모호하면 422(후보 선택)
+  if (r.status === 422) assert.equal(r.body.candidates.length, 2);
+  else assert.equal(r.body.cert.course_name, '2026년 하반기 개인정보보호 및 정보 보안 교육');
 });

@@ -4,6 +4,7 @@ const {
   resolveEmp, tasksByEmp, getTask, pendingEduTasks, recordSubmission, updateTask, deleteTask,
 } = require('../lib/data');
 const { pickMatch } = require('../lib/certMatch');
+const CertExtract = require('../public/certExtract'); // 브라우저와 동일한 파서/성명 검증 로직
 const { createRequest, httpError } = require('../lib/assign');
 const { isValidDate } = require('../lib/time');
 const { wrap } = require('../lib/http');
@@ -62,9 +63,10 @@ router.post('/bulk', wrap(async (req, res) => {
 }));
 
 // POST /api/tasks/cert-upload  (multipart)
-//   empNo?, file?, courseName?, issuer?, completedDate?, ocrText?, taskId?
+//   empNo?, file?, courseName?, issuer?, completedDate?, certName?, ocrText?, taskId?
 // 프론트(Tesseract.js)가 추출한 값으로 '해당 사원의' 미제출 교육 업무를 매칭해 제출완료 처리.
-// 모호하면 422 + candidates, 프론트가 taskId 를 지정해 다시 호출한다.
+// 수료증 성명이 로그인 사원과 다르거나 확인되지 않으면 403(NAME_MISMATCH/NAME_UNVERIFIED)으로 거부한다.
+// 업무 매칭이 모호하면 422 + candidates, 프론트가 taskId 를 지정해 다시 호출한다.
 router.post('/cert-upload', upload.single('file'), wrap(async (req, res) => {
   const body = req.body || {};
   const emp = await resolveEmp(clean(body.empNo, 30));
@@ -74,6 +76,25 @@ router.post('/cert-upload', upload.single('file'), wrap(async (req, res) => {
 
   if (!req.file && !cert.ocr_text && !cert.course_name) {
     return res.status(400).json({ error: '파일 또는 OCR 추출 결과(courseName/ocrText)가 필요합니다.' });
+  }
+
+  // ---- 본인 성명 검증 (strict) ----
+  // 서버가 OCR 원문에서 성명을 다시 추출해 로그인 사원의 성명과 비교한다. 프론트가 보낸 certName 이 원문과 다르면 거부한다.
+  const serverName = CertExtract.extractName(cert.ocr_text || '').name;
+  const claimedName = clean(body.certName, 50);
+  if (serverName && claimedName && CertExtract.normalizeName(serverName) !== CertExtract.normalizeName(claimedName)) {
+    return res.status(400).json({ error: '수료증 성명 값이 OCR 원문과 일치하지 않습니다.', code: 'NAME_TAMPERED', isNameMatched: false });
+  }
+  const nameCheck = CertExtract.verifyName(emp.name, { certName: serverName || claimedName || '', text: cert.ocr_text || '' });
+  if (nameCheck.status !== 'match') {
+    return res.status(403).json({
+      error: CertExtract.nameMessage(nameCheck),
+      code: nameCheck.status === 'mismatch' ? 'NAME_MISMATCH' : 'NAME_UNVERIFIED',
+      isNameMatched: false,
+      matchedName: nameCheck.matchedName,
+      expectedName: emp.name,
+      similar: nameCheck.similar,
+    });
   }
 
   const pending = await pendingEduTasks(emp.empNo);
@@ -100,7 +121,10 @@ router.post('/cert-upload', upload.single('file'), wrap(async (req, res) => {
 
   const changed = await recordSubmission(task.id, file, cert, matchedBy);
   if (!changed) return res.status(409).json({ error: '이미 제출 처리된 업무입니다.' });
-  res.json({ matchedTask: await getTask(task.id), matchedBy, score, cert, fileName });
+  res.json({
+    matchedTask: await getTask(task.id), matchedBy, score, cert, fileName,
+    nameCheck: { isNameMatched: true, matchedName: nameCheck.matchedName, expectedName: emp.name },
+  });
 }));
 
 // PATCH /api/tasks/:id  { title?, dept?, assignee?, due?, status?, cat? } - 기한 연기 등 수정
@@ -135,13 +159,24 @@ router.patch('/:id', wrap(async (req, res) => {
   res.json(await getTask(id));
 }));
 
-// POST /api/tasks/:id/submit  (multipart 또는 JSON, 수료증 필드 선택적 포함) - 직원 "제출완료"
-// 이미 제출된 업무는 다시 처리하지 않고 현재 상태를 그대로 돌려준다(중복 제출 이력 방지).
+// POST /api/tasks/:id/submit - 직원 "제출완료" (수동 제출)
+// - 이미 제출된 업무는 다시 처리하지 않고 현재 상태를 그대로 돌려준다(중복 제출 이력 방지).
+// - 교육 수료증(edu) 업무는 성명 검증을 거치는 /cert-upload 로만 제출할 수 있다. (수동 제출로 검증을 우회 불가)
+//   시연 등에서 예외가 필요하면 ALLOW_MANUAL_EDU_SUBMIT=true
+// - 수동 제출은 수료증 OCR 필드(교육명/발급기관/이수일자/원문)를 기록하지 않는다. (검증되지 않은 값이 'OCR 자동 제출'처럼 보이는 것 방지)
+const NO_CERT = { course_name: null, issuer: null, completed_date: null, ocr_text: null };
 router.post('/:id/submit', upload.single('file'), wrap(async (req, res) => {
   const task = await getTask(req.params.id);
   if (!task) return res.status(404).json({ error: 'task not found' });
+  if (task.status === 'done') return res.json(task);
 
-  if (task.status !== 'done') await recordSubmission(task.id, fileInfo(req.file), certFromBody(req.body), 'manual');
+  if (task.cat === 'edu' && process.env.ALLOW_MANUAL_EDU_SUBMIT !== 'true') {
+    return res.status(403).json({
+      error: '교육 수료증 업무는 수료증을 업로드해 본인 성명 검증을 거쳐야 제출할 수 있습니다.',
+      code: 'CERT_REQUIRED',
+    });
+  }
+  await recordSubmission(task.id, fileInfo(req.file), NO_CERT, 'manual');
   res.json(await getTask(task.id));
 }));
 

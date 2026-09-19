@@ -75,4 +75,23 @@ npm test
 - `test/postgrest-requests.test.js` : 실제 `@supabase/supabase-js` 가 만드는 HTTP 요청 형태 검증
 - 두 테스트 모두 **실제 Supabase 에 접속하지 않습니다.** 실제 DB 와의 최종 확인은 `npm run seed` 성공 + 배포 후 `/api/_boot?step=supabase` 로 하세요.
 
+## 수료증 OCR 검증 (본인 성명 확인)
+
+`POST /api/tasks/cert-upload` 는 **수료증의 성명이 로그인 사원과 일치할 때만** 제출을 처리합니다. 프론트(`public/index.html`)와 서버(`routes/tasks.js`)가 같은 파서 `public/certExtract.js` 로 각각 검증합니다.
+
+| 응답 | 의미 |
+|---|---|
+| `403 NAME_MISMATCH` | 수료증 성명 ≠ 제출자 성명 → 반려 (`isNameMatched:false`, `matchedName`=수료증 성명, `expectedName`) |
+| `403 NAME_UNVERIFIED` | 수료증에서 성명을 읽지 못함 → 본인 확인 불가로 반려 |
+| `400 NAME_TAMPERED` | 프론트가 보낸 `certName` 이 OCR 원문(`ocrText`)에서 서버가 추출한 성명과 다름 |
+| `403 CERT_REQUIRED` | 교육 수료증(edu) 업무를 `/submit` 수동 제출로 처리하려는 시도 (수료증 업로드로만 제출 가능, 시연용 예외: `ALLOW_MANUAL_EDU_SUBMIT=true`) |
+
+- 성명은 `성명 / 수료자 / 이름` 라벨 뒤, 또는 `위 사람 ○○○은` 문장에서 추출합니다. 라벨 값이 있으면 그 값이 절대적이며, 라벨을 못 읽었을 때만 원문 속 본인 이름 유무로 보완합니다. 비교는 공백을 무시한 완전 일치(strict)입니다.
+- 교육명은 **여러 줄로 줄바꿈된 값**(최대 4줄)을 다음 항목 라벨·빈 줄·"위 사람은…" 문장·날짜 줄·기관명 줄 직전까지 이어 붙이고 공백을 단일 공백으로 정규화합니다.
+- OCR(브라우저 Tesseract.js): 실험 결과 **텍스트 블록(PSM 6)** 설정이 개선의 핵심이라 원본을 PSM 6 으로 먼저 읽고, 교육명·성명을 못 읽었을 때만 콘트라스트 조정 → Otsu 이진화 → 자동 분할(PSM 3) 순으로 보조 시도합니다.
+- 화면에는 `이름 일치 여부: ✅ 일치 ('신소율')` / `❌ 불일치 ('강하율')` / `⚠️ 성명 미확인` 뱃지가 표시되고, 불일치 시 제출 버튼이 비활성화됩니다. 파싱 결과 객체에는 `isNameMatched`, `matchedName` 이 담깁니다.
+- 「🚫 타인 수료증으로 제출 시도」 시연 버튼으로 반려 흐름을 시연할 수 있고, `npm run dev:fake` 는 실제 DB 없이 화면을 시험하는 가짜 DB 서버입니다.
+
+> **한계**: OCR 이 브라우저에서 실행되므로 서버는 클라이언트가 보낸 OCR 원문을 기준으로 검증합니다(원문 자체를 위조하면 우회 가능). 또한 이 앱에는 실제 로그인이 없어 `empNo` 도 클라이언트가 지정합니다. 위조를 막으려면 서버 측 OCR 과 SSO 로그인이 필요합니다.
+
 배포 방법은 [DEPLOY.md](DEPLOY.md), 시연 모드(수료증 OCR)는 화면의 「▶ 시연용 샘플 수료증 자동 입력」 버튼을 참고하세요.

@@ -82,9 +82,13 @@ h1{font-size:22px;margin:0 0 4px;letter-spacing:-.4px}h2{font-size:15px;margin:0
 .steps li.done{color:var(--text)}.steps li.done .dot{background:var(--green);border-color:var(--green)}.steps li.err{color:var(--red)}.steps li.err .dot{background:var(--red);border-color:var(--red)}
 @keyframes spin{to{transform:rotate(360deg)}}.steps small{display:block;font-weight:400;color:var(--muted);font-size:11px}
 .bar{height:6px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin-top:8px}.bar i{display:block;height:100%;width:0;background:var(--blue);transition:width .25s}
-.fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}.fbox{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff;min-height:62px}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.fbox{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff;min-height:62px}
 .fbox span{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}.fbox b{font-size:13px;word-break:break-word}.fbox.ok{border-color:#a7f3d0;background:#f0fdf9}.fbox.miss b{color:var(--amber)}
-.cand{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.cand-note{margin-top:12px;font-size:12px;color:var(--amber)}
+.cand{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}.cand-note{margin-top:12px;font-size:12px;color:var(--amber)}
+.name-badge{margin-top:12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:10px 14px;border-radius:10px;font-weight:800;font-size:14px;border:1px solid}.name-badge small{font-weight:600;font-size:12px;opacity:.85}
+.name-badge.ok{background:var(--green50);color:#047857;border-color:#a7f3d0}.name-badge.bad{background:var(--red50);color:#b91c1c;border-color:#fecaca}.name-badge.warn{background:var(--amber50);color:var(--amber);border-color:#fde68a}
+.ocr-warn{margin-top:10px;padding:10px 14px;border-radius:10px;background:var(--red50);border:1px solid #fecaca;color:#991b1b;font-size:13px;font-weight:700;line-height:1.55}
+.demo-btn.alt{background:#fff;color:#b91c1c;border:1px solid #fecaca;box-shadow:none;margin-top:8px}.demo-btn.alt:hover:not(:disabled){background:var(--red50)}
 
 /* admin */
 .two{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:18px;margin-bottom:18px;align-items:start}
@@ -166,12 +170,16 @@ footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
         <div class="muted" style="margin-top:5px">수료증 이미지/PDF를 올리면 Tesseract.js가 브라우저에서 글자를 읽고, 교육명·발급기관·이수일자를 추출해 내 미제출 교육 업무를 자동으로 제출 처리합니다.</div>
         <label id="certDrop" class="upload">파일을 끌어놓거나 클릭하여 업로드<br><small>PDF, JPG, PNG</small><input id="certFile" type="file" hidden accept=".pdf,.jpg,.jpeg,.png"></label>
         <button class="demo-btn block demoCertBtn">▶ 시연용 샘플 수료증 자동 입력</button>
+        <button class="demo-btn alt demoOtherBtn" title="다른 사람 이름의 수료증으로 제출을 시도해 본인 검증(반려)을 시연합니다">🚫 타인 수료증으로 제출 시도 (본인 검증 시연)</button>
         <div id="ocrFlow" class="ocr-flow" hidden>
           <div class="ocr-grid">
             <div><div id="ocrThumb" class="ocr-thumb"><span class="muted">미리보기</span></div><div class="bar"><i id="ocrBar"></i></div></div>
             <ol class="steps" id="ocrSteps"></ol>
           </div>
           <div class="fields" id="ocrFields"></div>
+          <div id="ocrNameBadge" class="name-badge" role="status" hidden></div>
+          <div id="ocrWarn" class="ocr-warn" role="alert" hidden></div>
+          <div id="ocrActions" class="cand"></div>
           <div id="ocrCand"></div>
         </div>
         <div id="certResult" class="muted" style="margin-top:10px"></div>
@@ -257,6 +265,8 @@ footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<!-- 수료증 파서 + 본인 성명 검증 (서버와 동일한 코드를 공유: public/certExtract.js) -->
+<script src="certExtract.js"></script>
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const API='';
@@ -398,7 +408,9 @@ function renderCards(){
       <h3>${esc(t.title)}</h3>
       <div class="meta">요청부서 ${esc(t.dept)} · 마감 ${esc(fmtDue(t.due))}</div>
       ${done?certLine(t.cert):''}
-      ${!done?`<div class="actions"><button class="btn primary submit" data-id="${t.id}">제출완료</button></div>`:''}
+      ${!done?`<div class="actions">${t.cat==='edu'
+        ? `<button class="btn primary goCert" title="교육 수료증은 본인 성명 검증을 거쳐 업로드로만 제출할 수 있습니다">📎 수료증 업로드로 제출</button>`
+        : `<button class="btn primary submit" data-id="${t.id}">제출완료</button>`}</div>`:''}
     </article>`;
   }).join('');
 }
@@ -426,6 +438,11 @@ $('#catTabs').onclick=e=>{ const b=e.target.closest('.tab'); if(!b) return; $$('
 
 // 직원 → 관리자: [제출완료] → POST /api/tasks/:id/submit → DB status='done'
 $('#cards').onclick=async e=>{
+  if(e.target.closest('.goCert')){ // 교육 수료증 카드: 업로드 영역으로 이동
+    const p=$('#certPanel'); p.scrollIntoView({behavior:'smooth',block:'center'});
+    p.animate([{boxShadow:'0 0 0 3px #2563eb66'},{boxShadow:'0 0 0 0 #2563eb00'}],{duration:1600});
+    return;
+  }
   const b=e.target.closest('.submit'); if(!b) return;
   b.disabled=true;
   try{
@@ -616,9 +633,18 @@ function getOcrWorker(){
   }
   return ocrWorkerPromise;
 }
+// 페이지 분할 모드(PSM): 수료증은 "라벨 : 값" 줄이 세로로 쌓인 하나의 텍스트 블록이므로 SINGLE_BLOCK(6)이 가장 안정적이다.
+const OCR_PSM={
+  get AUTO(){ return (typeof Tesseract!=='undefined'&&Tesseract.PSM&&Tesseract.PSM.AUTO)||'3'; },
+  get BLOCK(){ return (typeof Tesseract!=='undefined'&&Tesseract.PSM&&Tesseract.PSM.SINGLE_BLOCK)||'6'; },
+};
+const setOcrMode=(worker,psm)=>worker.setParameters({tessedit_pageseg_mode:psm,preserve_interword_spaces:'1',user_defined_dpi:'300'});
+
+// 일반 문서(공문 등): 자동 페이지 분할
 async function ocrImage(source,onProgress){
   ocrProgress=onProgress||(()=>{});
-  const worker=await getOcrWorker(); const {data}=await worker.recognize(source); return data.text||'';
+  const worker=await getOcrWorker(); await setOcrMode(worker,OCR_PSM.AUTO);
+  const {data}=await worker.recognize(source); return data.text||'';
 }
 async function ensurePdfWorker(){
   if(typeof pdfjsLib==='undefined') throw new Error('pdf.js를 불러오지 못했습니다(인터넷 연결 확인)');
@@ -647,60 +673,116 @@ async function readPdf(file){
 }
 const canvasToBlob=c=>new Promise(r=>c.toBlob(r,'image/png'));
 
-const L_COURSE='교\\s*육\\s*명|교\\s*육\\s*과\\s*정\\s*명?|과\\s*정\\s*명|과\\s*목\\s*명|교\\s*육\\s*과\\s*목';
-const L_ISSUER='발\\s*급\\s*기\\s*관|발\\s*급\\s*처|교\\s*육\\s*기\\s*관|수\\s*료\\s*기\\s*관|주\\s*관\\s*기\\s*관|주\\s*관|기\\s*관\\s*명';
-const L_DATE='이\\s*수\\s*일\\s*자?|수\\s*료\\s*일\\s*자?|교\\s*육\\s*기\\s*간|교\\s*육\\s*일\\s*자|발\\s*급\\s*일\\s*자?';
-const labelRe=l=>new RegExp(`^\\s*(?:${l})\\s*(?:[:：;]\\s*|\\s+)(\\S.*)$`);
-const DATE_RE=/(20\d{2})\s*[년.\-\/]\s*(\d{1,2})\s*[월.\-\/]\s*(\d{1,2})/g;
-const TOPIC_RE=/(정보\s*보안|개인\s*정보|청렴|성희롱|성폭력|산업\s*안전|장애인|괴롭힘|부패\s*방지|윤리|인권|저작권|재난|소방|응급|안전|보안)/;
-const ORG_RE=/(진흥원|공단|연수원|개발원|협회|센터|대학교?|공사|교육원|아카데미|재단|연구원|팀|부|실|원)\s*$/;
-function lastDate(str){
-  let m,last=null; DATE_RE.lastIndex=0; while((m=DATE_RE.exec(str))) last=m;
-  return last?`${last[1]}-${String(last[2]).padStart(2,'0')}-${String(last[3]).padStart(2,'0')}`:'';
+/* ---------- OCR 전처리: 업스케일 → 그레이스케일 → 콘트라스트 조정 → Otsu 이진화 ---------- */
+async function toCanvas(source){
+  if(source instanceof HTMLCanvasElement) return source;
+  const bmp=await createImageBitmap(source);
+  const c=document.createElement('canvas'); c.width=bmp.width; c.height=bmp.height;
+  c.getContext('2d').drawImage(bmp,0,0); if(bmp.close) bmp.close();
+  return c;
 }
-const tidy=s=>s.replace(/[|_\[\]{}<>「」『』"]/g,' ').replace(/\s{2,}/g,' ').trim();
-function extractCert(raw){
-  const lines=raw.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-  const out={courseName:'',issuer:'',completedDate:''};
-  const reC=labelRe(L_COURSE),reI=labelRe(L_ISSUER),reD=labelRe(L_DATE);
-  for(const l of lines){
-    let m;
-    if(!out.courseName&&(m=l.match(reC))) out.courseName=tidy(m[1]);
-    else if(!out.issuer&&(m=l.match(reI))) out.issuer=tidy(m[1]);
-    else if(!out.completedDate&&(m=l.match(reD))) out.completedDate=lastDate(m[1]);
+function preprocessForOcr(src,{binarize=true}={}){
+  // 1) 크기 보정: 폭 1000px 미만의 작은 이미지만 1200px 근처로 확대(과도한 확대는 오히려 인식률을 떨어뜨림), 3200px 초과는 2400px 로 축소
+  const scale=src.width<1000?Math.min(2.5,1200/src.width):(src.width>3200?2400/src.width:1);
+  const w=Math.max(1,Math.round(src.width*scale)), h=Math.max(1,Math.round(src.height*scale));
+  const c=document.createElement('canvas'); c.width=w; c.height=h;
+  const g=c.getContext('2d',{willReadFrequently:true}); g.imageSmoothingQuality='high';
+  g.fillStyle='#fff'; g.fillRect(0,0,w,h); g.drawImage(src,0,0,w,h);
+  const img=g.getImageData(0,0,w,h), d=img.data, n=w*h, gray=new Uint8Array(n);
+  let hist=new Uint32Array(256);
+  // 2) 그레이스케일
+  for(let i=0,j=0;i<n;i++,j+=4){ const y=((d[j]*299+d[j+1]*587+d[j+2]*114)/1000)|0; gray[i]=y; hist[y]++; }
+  // 3) 콘트라스트 스트레치: 하위/상위 1%를 잘라내고 0~255로 펼친다 (흐릿한 스캔/사진 보정)
+  const cut=Math.round(n*0.01); let lo=0, hi=255, acc=0;
+  for(let v=0;v<256;v++){ acc+=hist[v]; if(acc>cut){ lo=v; break; } }
+  acc=0; for(let v=255;v>=0;v--){ acc+=hist[v]; if(acc>cut){ hi=v; break; } }
+  if(hi-lo<20){ lo=0; hi=255; } // 거의 단색이면 과도한 확대 방지
+  const range=Math.max(1,hi-lo); hist=new Uint32Array(256);
+  for(let i=0;i<n;i++){ const v=Math.min(255,Math.max(0,((gray[i]-lo)*255/range)|0)); gray[i]=v; hist[v]++; }
+  if(!binarize){ // 이진화 없이 그레이스케일 + 콘트라스트 조정만 적용
+    for(let i=0,j=0;i<n;i++,j+=4){ d[j]=d[j+1]=d[j+2]=gray[i]; d[j+3]=255; }
+    g.putImageData(img,0,0);
+    return {canvas:c, threshold:null, inverted:false, scale, binarized:false};
   }
-  if(!out.courseName){
-    const l=lines.find(l=>/(교육|연수|과정)/.test(l)&&TOPIC_RE.test(l)&&!/(위\s*사람|수여|이수하|성실)/.test(l));
-    if(l) out.courseName=tidy(l.replace(/^.*?[:：]\s*/,''));
+  // 4) Otsu 임계값 이진화
+  let sum=0; for(let v=0;v<256;v++) sum+=v*hist[v];
+  let sumB=0, wB=0, best=-1, thr=127;
+  for(let v=0;v<256;v++){
+    wB+=hist[v]; if(!wB) continue; const wF=n-wB; if(!wF) break;
+    sumB+=v*hist[v]; const mB=sumB/wB, mF=(sum-sumB)/wF, between=wB*wF*(mB-mF)*(mB-mF);
+    if(between>best){ best=between; thr=v; }
   }
-  if(!out.issuer){
-    const l=[...lines].reverse().find(l=>ORG_RE.test(l.replace(/\s*(원장|장|대표|귀하)\s*\S*$/,''))&&l!==out.courseName&&!/(교육|과정)/.test(l));
-    if(l) out.issuer=tidy(l.replace(/\s*(원장|장|대표)\s*\S*$/,''));
-  }
-  if(!out.completedDate) out.completedDate=lastDate(raw);
-  return out;
+  let white=0; for(let i=0;i<n;i++){ if(gray[i]>thr) white++; }
+  const invert=white<n*0.5; // 어두운 배경 + 밝은 글자면 반전해서 '흰 배경 + 검은 글자'로 맞춘다
+  for(let i=0,j=0;i<n;i++,j+=4){ const v=((gray[i]>thr)!==invert)?255:0; d[j]=d[j+1]=d[j+2]=v; d[j+3]=255; }
+  g.putImageData(img,0,0);
+  return {canvas:c, threshold:thr, inverted:invert, scale, binarized:true};
 }
 
-const sampleText=()=>`수료증\n교육명 : 2026년 하반기 정보보안 교육\n발급기관 : 경기도경제과학진흥원\n이수일자 : 2026년 9월 18일\n성명 : ${me.name}\n위 사람은 위 교육과정을 성실히 이수하였기에 이 증서를 수여합니다.`;
-async function makeSampleCertCanvas(){
+// 수료증 OCR: 실험 결과 "텍스트 블록(PSM 6)" 설정이 인식률 개선의 핵심이므로 원본 이미지를 PSM 6 으로 먼저 읽는다.
+// 교육명·성명을 아직 못 읽었을 때만 보조 시도를 이어간다(각 시도의 원문을 합쳐 한 번에 파싱):
+//   1) 원본 + PSM 6  →  2) 그레이스케일+콘트라스트 조정 + PSM 6  →  3) Otsu 이진화 + PSM 6  →  4) 원본 + 자동 분할(PSM 3)
+// 서버도 같은 원문/같은 파서로 성명을 다시 검증한다.
+async function ocrCertificate(source,onProgress){
+  const worker=await getOcrWorker();
+  const base=await toCanvas(source);
+  const attempts=[
+    {name:'원본·텍스트블록',psm:OCR_PSM.BLOCK,img:()=>base},
+    {name:'콘트라스트 조정',psm:OCR_PSM.BLOCK,img:()=>preprocessForOcr(base,{binarize:false}).canvas},
+    {name:'이진화',psm:OCR_PSM.BLOCK,img:()=>preprocessForOcr(base,{binarize:true}).canvas},
+    {name:'원본·자동분할',psm:OCR_PSM.AUTO,img:()=>base},
+  ];
+  let text='', used=[];
+  for(let i=0;i<attempts.length;i++){
+    const a=attempts[i];
+    ocrProgress=m=>onProgress&&onProgress({...m,pass:i+1,passName:a.name});
+    await setOcrMode(worker,a.psm);
+    const t=(await worker.recognize(a.img())).data.text||'';
+    text+=(text?String.fromCharCode(10,10):"")+t; used.push(a.name);
+    const f=CertExtract.extractCert(text);
+    if(f.courseName&&f.certName) break;   // 필요한 항목을 읽었으면 중단
+  }
+  return {text,passes:used.length,used};
+}
+function ocrProgressUI(m){
+  const tag=m.pass>1?` · ${m.pass}차 시도(${m.passName})`:'';
+  if(m.status==='recognizing text'){ setBar(Math.min(.9,.1+((m.pass||1)-1)*.2+m.progress*.2)); setStep(1,'active',`인식 중 ${Math.round(m.progress*100)}%${tag}`); }
+  else if(m.status) setStep(1,'active',/load|init/.test(m.status)?'엔진/언어 데이터 로딩...':m.status);
+}
+
+/* ---------- 시연용 샘플 수료증 (긴 교육명은 자동 줄바꿈) ---------- */
+const SAMPLE_COURSE='2026년 하반기 정보보안 강화 및 사이버 위협 대응 실무 교육';
+const sampleText=name=>`수료증\n교육명 : 2026년 하반기 정보보안 강화 및 사이버 위협\n대응 실무 교육\n발급기관 : 경기도경제과학진흥원\n이수일자 : 2026년 9월 18일\n성명 : ${name}\n위 사람은 위 교육과정을 성실히 이수하였기에 이 증서를 수여합니다.`;
+function wrapCanvasText(g,text,maxW){
+  const lines=[]; let cur='';
+  for(const w of text.split(' ')){ const t=cur?cur+' '+w:w; if(cur&&g.measureText(t).width>maxW){ lines.push(cur); cur=w; } else cur=t; }
+  if(cur) lines.push(cur); return lines;
+}
+async function makeSampleCertCanvas(name){
   const c=document.createElement('canvas'); c.width=1200; c.height=800;
   const g=c.getContext('2d'); const F='"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif';
   g.fillStyle='#fff'; g.fillRect(0,0,c.width,c.height);
   g.strokeStyle='#0b2a5b'; g.lineWidth=8; g.strokeRect(30,30,1140,740); g.lineWidth=2; g.strokeRect(50,50,1100,700);
   g.fillStyle='#111'; g.textBaseline='alphabetic';
-  g.font=`bold 84px ${F}`; g.textAlign='center'; g.fillText('수료증',600,190);
-  g.textAlign='left'; g.font=`44px ${F}`;
-  [['교육명','2026년 하반기 정보보안 교육'],['발급기관','경기도경제과학진흥원'],['이수일자','2026년 9월 18일'],['성명',me.name]].forEach(([k,v],i)=>g.fillText(`${k} : ${v}`,110,320+i*84));
-  g.font=`34px ${F}`; g.textAlign='center';
-  g.fillText('위 사람은 위 교육과정을 성실히 이수하였기에',600,690); g.fillText('이 증서를 수여합니다.',600,738);
+  g.font=`bold 84px ${F}`; g.textAlign='center'; g.fillText('수료증',600,180);
+  g.textAlign='left'; g.font=`42px ${F}`;
+  let y=290; g.fillText('교육명 :',110,y);
+  const lines=wrapCanvasText(g,SAMPLE_COURSE,720);
+  lines.forEach((ln,i)=>g.fillText(ln,300,y+i*56));   // 값이 길면 2줄 이상으로 줄바꿈
+  y+=lines.length*56+30;
+  [['발급기관','경기도경제과학진흥원'],['이수일자','2026년 9월 18일'],['성명',name]].forEach(([k,v])=>{ g.fillText(`${k} : ${v}`,110,y); y+=76; });
+  g.font=`32px ${F}`; g.textAlign='center';
+  g.fillText('위 사람은 위 교육과정을 성실히 이수하였기에',600,y+36); g.fillText('이 증서를 수여합니다.',600,y+82);
   g.fillStyle='#9ca3af'; g.font=`22px ${F}`; g.textAlign='right'; g.fillText('※ 시연용 샘플 수료증',1130,110);
   return c;
 }
 
-const STEPS=['파일 읽기','OCR 텍스트 인식 (Tesseract.js)','교육명 · 발급기관 · 이수일자 추출','DB 매칭 및 제출 완료 처리'];
+/* ---------- 파이프라인 UI ---------- */
+const STEPS=['파일 읽기','OCR 텍스트 인식 (전처리 + Tesseract.js)','교육명 · 발급기관 · 이수일자 · 성명 추출','본인 성명 검증','DB 매칭 및 제출 완료 처리'];
 function initFlow(thumbHtml){
   $('#ocrFlow').hidden=false; $('#ocrThumb').innerHTML=thumbHtml||'<span class="muted">미리보기</span>'; $('#ocrBar').style.width='0';
-  $('#ocrCand').innerHTML=''; $('#certResult').textContent='';
+  $('#ocrCand').innerHTML=''; $('#ocrActions').innerHTML=''; $('#certResult').textContent='';
+  $('#ocrNameBadge').hidden=true; $('#ocrWarn').hidden=true;
   $('#ocrSteps').innerHTML=STEPS.map((s,i)=>`<li data-s="${i}"><span class="dot"></span><span>${s}<small></small></span></li>`).join('');
   renderFields(null);
 }
@@ -711,46 +793,84 @@ function setStep(i,state,detail){
 }
 function renderFields(f){
   const box=(k,label)=>{ const v=f?.[k]; return `<div class="fbox ${f?(v?'ok':'miss'):''}"><span>${label}</span><b>${f?(v?esc(v):'미검출'):'—'}</b></div>`; };
-  $('#ocrFields').innerHTML=box('courseName','교육명')+box('issuer','발급기관')+box('completedDate','이수일자');
+  $('#ocrFields').innerHTML=box('courseName','교육명')+box('issuer','발급기관')+box('completedDate','이수일자')+box('certName','성명 (수료증)');
+}
+// 이름 일치 여부 뱃지: ✅ 일치 ('신소율') / ❌ 불일치 ('강하율') / ⚠️ 성명 미확인
+function renderNameBadge(v){
+  const el=$('#ocrNameBadge'); if(!v){ el.hidden=true; return; }
+  el.hidden=false;
+  el.className='name-badge '+(v.status==='match'?'ok':v.status==='mismatch'?'bad':'warn');
+  const who=`<small>제출자 '${esc(v.expectedName)}'${v.matchedName?` · 수료증 '${esc(v.matchedName)}'`:''}</small>`;
+  el.innerHTML=v.status==='match'?`이름 일치 여부: ✅ 일치 ('${esc(v.matchedName)}') ${who}`
+    :v.status==='mismatch'?`이름 일치 여부: ❌ 불일치 ('${esc(v.matchedName)}') ${who}`
+    :`이름 일치 여부: ⚠️ 성명 미확인 ${who}`;
+}
+// 성명 불일치/미확인 → 제출 반려: 경고 + 제출 버튼 비활성화, 서버 호출 없음
+function rejectSubmission(v,byServer){
+  const msg=CertExtract.nameMessage(v);
+  setStep(3,'err',v.status==='mismatch'?`성명 불일치 — 수료증 '${v.matchedName}' ≠ 제출자 '${v.expectedName}'`:'수료증에서 성명을 확인하지 못함');
+  setStep(4,'err','제출 반려 — 본인 명의의 수료증만 제출할 수 있습니다');
+  const warn=$('#ocrWarn'); warn.hidden=false; warn.textContent=msg;
+  $('#ocrActions').innerHTML=`<button class="btn" disabled title="성명이 일치해야 제출할 수 있습니다">🚫 제출 불가 — 성명 ${v.status==='mismatch'?'불일치':'미확인'}</button><span class="muted">본인 명의의 수료증을 다시 업로드해 주세요.</span>`;
+  $('#certResult').textContent='✗ 제출 반려: '+msg.replace(/^⚠️\s*/,'');
+  addMsg(`🚫 <b>제출이 반려되었습니다.</b>${byServer?' <span class="muted">(서버 검증)</span>':''}<br>${esc(msg)}`);
+  toast('성명이 일치하지 않아 제출이 반려되었습니다.','err');
 }
 const setBar=p=>{ $('#ocrBar').style.width=Math.round(p*100)+'%' };
 let pipelineBusy=false;
-function setBusy(b){ pipelineBusy=b; $$('.demoCertBtn').forEach(x=>x.disabled=b) }
+function setBusy(b){ pipelineBusy=b; $$('.demoCertBtn,.demoOtherBtn').forEach(x=>x.disabled=b) }
 
 async function submitCert({blob,fileName,fields,ocrText,taskId}){
   const fd=new FormData();
   if(blob) fd.append('file',blob,fileName);
   fd.append('empNo',me.empNo); fd.append('fileName',fileName||'');
   fd.append('courseName',fields.courseName||''); fd.append('issuer',fields.issuer||'');
-  fd.append('completedDate',fields.completedDate||''); fd.append('ocrText',ocrText||'');
+  fd.append('completedDate',fields.completedDate||''); fd.append('certName',fields.certName||'');
+  fd.append('ocrText',ocrText||'');
   if(taskId) fd.append('taskId',taskId);
   return api('/api/tasks/cert-upload',{method:'POST',body:fd});
 }
 async function finishSuccess(r,fields){
-  setStep(3,'done',`「${r.matchedTask.title}」 → 제출완료 (${r.matchedBy==='keyword'?'키워드 자동 매칭':r.matchedBy==='manual-select'?'직접 선택':'유일한 대기 업무'})`);
+  setStep(4,'done',`「${r.matchedTask.title}」 → 제출완료 (${r.matchedBy==='keyword'?'키워드 자동 매칭':r.matchedBy==='manual-select'?'직접 선택':'유일한 대기 업무'})`);
   setBar(1); await loadTasks();
   const el=$(`[data-card="${r.matchedTask.id}"]`); if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.add('flash'); }
   $('#certResult').textContent=`✓ ${r.fileName||'수료증'} 분석 완료 · ${r.matchedTask.title} 제출완료 처리`;
-  addMsg(`✅ <b>${esc(r.matchedTask.title)}</b> 건이 제출 완료 처리되었습니다.<br><span class="muted">교육명 ${esc(fields.courseName||'-')} · 발급기관 ${esc(fields.issuer||'-')} · 이수일자 ${esc(fields.completedDate||'-')}</span>`);
+  addMsg(`✅ <b>${esc(r.matchedTask.title)}</b> 건이 제출 완료 처리되었습니다.<br><span class="muted">교육명 ${esc(fields.courseName||'-')} · 발급기관 ${esc(fields.issuer||'-')} · 이수일자 ${esc(fields.completedDate||'-')} · 성명 ${esc(fields.certName||'-')}</span>`);
   toast('수료증이 자동 인식되어 제출 완료 처리되었습니다.','ok');
 }
 async function submitStep(ctx){
-  setStep(3,'active','서버에 매칭 요청 중...');
+  setStep(4,'active','서버에 매칭 요청 중...');
   try{ await finishSuccess(await submitCert(ctx),ctx.fields); }
   catch(e){
+    const code=e.data?.code||'';
+    if(e.status===403&&(code==='NAME_MISMATCH'||code==='NAME_UNVERIFIED')){ // 서버가 성명 검증에서 거부
+      const v={status:code==='NAME_MISMATCH'?'mismatch':'unverified',matchedName:e.data.matchedName||'',expectedName:e.data.expectedName||me.name,similar:!!e.data.similar,isNameMatched:false};
+      renderNameBadge(v); rejectSubmission(v,true); return;
+    }
     if(e.status===422&&e.data?.candidates){
-      setStep(3,'err','자동 매칭 불가 — 아래에서 해당 업무를 선택하세요');
+      setStep(4,'err','자동 매칭 불가 — 아래에서 해당 업무를 선택하세요');
       $('#ocrCand').innerHTML=`<div class="cand-note">${esc(e.data.error)}</div><div class="cand">`+e.data.candidates.map(c=>`<button class="btn sm pick" data-id="${c.id}">${esc(c.title)}</button>`).join('')+`</div>`;
       $$('#ocrCand .pick').forEach(b=>b.onclick=async()=>{
-        $('#ocrCand').innerHTML=''; setStep(3,'active','선택한 업무로 제출 중...');
+        $('#ocrCand').innerHTML=''; setStep(4,'active','선택한 업무로 제출 중...');
         try{ await finishSuccess(await submitCert({...ctx,taskId:b.dataset.id}),ctx.fields); }
-        catch(err){ setStep(3,'err',err.message); $('#certResult').textContent='✗ '+err.message; }
+        catch(err){ setStep(4,'err',err.message); $('#certResult').textContent='✗ '+err.message; }
       });
     }else{
-      setStep(3,'err',e.message); $('#certResult').textContent='✗ 제출 실패: '+e.message;
+      setStep(4,'err',e.message); $('#certResult').textContent='✗ 제출 실패: '+e.message;
       addMsg('⚠ 수료증 자동 제출에 실패했습니다: '+esc(e.message));
     }
   }
+}
+// 4단계: 제출자(로그인 사용자) 성명과 수료증 성명 비교. 일치할 때만 서버로 제출한다.
+async function verifyAndSubmit(ctx){
+  setStep(3,'active','제출자 성명과 수료증 성명 비교 중...'); if(ctx.demo) await sleep(600);
+  const v=CertExtract.verifyName(me.name,{certName:ctx.fields.certName,text:ctx.ocrText});
+  ctx.fields.isNameMatched=v.isNameMatched; ctx.fields.matchedName=v.matchedName; ctx.fields.nameStatus=v.status;
+  renderNameBadge(v);
+  if(v.status!=='match'){ rejectSubmission(v); return; }
+  setStep(3,'done',`성명 일치 ('${v.matchedName}')`);
+  if(ctx.demo) await sleep(400);
+  await submitStep(ctx);
 }
 async function runCertPipeline(file){
   if(pipelineBusy||!me) return; setBusy(true);
@@ -769,57 +889,62 @@ async function runCertPipeline(file){
     if(ocrText){ setStep(1,'done','텍스트 레이어를 그대로 사용 (OCR 생략)'); setBar(.7); }
     else{
       setStep(1,'active','언어 데이터 준비 중 (최초 1회 다운로드)...'); $('#ocrThumb').classList.add('scan');
-      ocrText=await ocrImage(source,m=>{
-        if(m.status==='recognizing text'){ setBar(.1+m.progress*.6); setStep(1,'active',`인식 중 ${Math.round(m.progress*100)}%`); }
-        else if(m.status) setStep(1,'active',m.status.includes('load')||m.status.includes('init')?'엔진/언어 데이터 로딩...':m.status);
-      });
-      $('#ocrThumb').classList.remove('scan'); setStep(1,'done',`${ocrText.replace(/\s/g,'').length}자 인식`);
+      const r=await ocrCertificate(source,ocrProgressUI); ocrText=r.text;
+      $('#ocrThumb').classList.remove('scan');
+      setStep(1,'done',`${ocrText.replace(/\s/g,'').length}자 인식 · ${r.passes}회 시도 (${r.used.join(' → ')})`);
     }
-    setStep(2,'active'); const fields=extractCert(ocrText); renderFields(fields);
-    const found=[fields.courseName,fields.issuer,fields.completedDate].filter(Boolean).length;
-    setStep(2,found?'done':'err',`${found}/3 항목 추출`);
-    if(!found) addMsg('⚠ 수료증에서 항목을 읽지 못했습니다. 파일명/원문 키워드로 매칭을 시도합니다.');
-    await submitStep({blob,fileName:file.name,fields,ocrText});
+    setStep(2,'active'); const fields=CertExtract.extractCert(ocrText,{expectedName:me.name}); renderFields(fields);
+    const found=[fields.courseName,fields.issuer,fields.completedDate,fields.certName].filter(Boolean).length;
+    setStep(2,found?'done':'err',`${found}/4 항목 추출`);
+    if(!found) addMsg('⚠ 수료증에서 항목을 읽지 못했습니다. 더 선명한 이미지로 다시 올려 주세요.');
+    await verifyAndSubmit({blob,fileName:file.name,fields,ocrText});
   }catch(e){
     $('#ocrThumb').classList.remove('scan');
     const idx=$$('#ocrSteps li.active')[0]?.dataset.s; setStep(idx!==undefined?Number(idx):1,'err',e.message);
     $('#certResult').textContent='✗ 처리 실패: '+e.message; addMsg('⚠ 수료증 처리 중 오류: '+esc(e.message));
   }finally{ setBusy(false); }
 }
-async function runDemo(){
+// 시연 모드: 샘플 수료증(긴 교육명 줄바꿈 포함)을 그려서 → 실제 OCR 시도 → 실패/미검출 시 내장 텍스트로 폴백
+//  opts.other=true 면 다른 사람 이름의 수료증으로 제출을 시도해 본인 검증(반려)을 시연한다.
+async function runDemo(opts={}){
   if(pipelineBusy||!me) return; setBusy(true);
+  const other=opts.other===true;
+  const holder=other?(employees.find(e=>e.name!==me.name)?.name||'강하율'):me.name;
   $('#certPanel').scrollIntoView({behavior:'smooth',block:'center'});
-  const canvas=await makeSampleCertCanvas();
+  const canvas=await makeSampleCertCanvas(holder);
   initFlow(`<img src="${canvas.toDataURL('image/png')}" alt="샘플 수료증">`);
-  addMsg('🎬 <b>시연 모드</b> — 샘플 수료증을 업로드합니다.'); await sleep(700);
+  addMsg(other?`🎬 <b>본인 검증 시연</b> — ${esc(me.name)}님이 <b>${esc(holder)}</b> 님의 수료증으로 제출을 시도합니다.`:'🎬 <b>시연 모드</b> — 샘플 수료증을 업로드합니다.');
+  await sleep(700);
   let ocrText='',fallback=false;
   try{
     setStep(0,'active'); await sleep(600); setStep(0,'done','sample_certificate.png (자동 생성)');
     setStep(1,'active','언어 데이터 준비 중 (최초 1회 다운로드)...'); $('#ocrThumb').classList.add('scan');
     try{
-      const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('OCR 시간 초과')),35000));
-      ocrText=await Promise.race([ocrImage(canvas,m=>{
-        if(m.status==='recognizing text'){ setBar(.1+m.progress*.6); setStep(1,'active',`인식 중 ${Math.round(m.progress*100)}%`); }
-        else if(m.status) setStep(1,'active','엔진/언어 데이터 로딩...');
-      }),timeout]);
-      if(!extractCert(ocrText).courseName) throw new Error('핵심 항목 미검출');
-      setStep(1,'done',`Tesseract.js 실제 인식 · ${ocrText.replace(/\s/g,'').length}자`);
+      const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('OCR 시간 초과')),45000));
+      const r=await Promise.race([ocrCertificate(canvas,ocrProgressUI),timeout]);
+      const f=CertExtract.extractCert(r.text);
+      if(!f.courseName||!f.certName) throw new Error('핵심 항목 미검출');
+      ocrText=r.text;
+      setStep(1,'done',`Tesseract.js 실제 인식 · ${ocrText.replace(/\s/g,'').length}자 · ${r.passes}회 시도 (${r.used.join(' → ')})`);
     }catch(e){
-      fallback=true; ocrText=sampleText(); await sleep(500);
+      fallback=true; ocrText=sampleText(holder); await sleep(500);
       setStep(1,'done',`⚠ 실제 OCR 불가(${e.message}) → 내장 샘플 텍스트로 시연 진행`); setBar(.7);
     }
     $('#ocrThumb').classList.remove('scan');
     if(fallback) addMsg('ℹ️ 인터넷/OCR 엔진을 사용할 수 없어 <b>내장 샘플 텍스트</b>로 시연합니다. (실제 파일 업로드 시에는 Tesseract.js가 인식합니다)');
     setStep(2,'active'); await sleep(500);
-    const fields=extractCert(ocrText), staged={courseName:'',issuer:'',completedDate:''};
-    for(const k of ['courseName','issuer','completedDate']){ staged[k]=fields[k]; renderFields({...staged}); await sleep(550); }
-    setStep(2,Object.values(fields).some(Boolean)?'done':'err',`${Object.values(fields).filter(Boolean).length}/3 항목 추출`); await sleep(500);
-    await submitStep({blob:await canvasToBlob(canvas),fileName:'sample_certificate.png',fields,ocrText});
+    const fields=CertExtract.extractCert(ocrText,{expectedName:me.name}), staged={courseName:'',issuer:'',completedDate:'',certName:''};
+    for(const k of ['courseName','issuer','completedDate','certName']){ staged[k]=fields[k]; renderFields({...staged}); await sleep(500); }
+    const found=['courseName','issuer','completedDate','certName'].filter(k=>fields[k]).length;
+    setStep(2,found?'done':'err',`${found}/4 항목 추출`); await sleep(400);
+    await verifyAndSubmit({demo:true,blob:await canvasToBlob(canvas),fileName:other?'other_person_certificate.png':'sample_certificate.png',fields,ocrText});
   }catch(e){
     $('#ocrThumb').classList.remove('scan'); $('#certResult').textContent='✗ 시연 실패: '+e.message; addMsg('⚠ 시연 중 오류: '+esc(e.message));
   }finally{ setBusy(false); }
 }
-$$('.demoCertBtn').forEach(b=>b.onclick=runDemo);
+$$('.demoCertBtn').forEach(b=>b.onclick=()=>runDemo());
+$$('.demoOtherBtn').forEach(b=>b.onclick=()=>runDemo({other:true}));
+
 $('#certFile').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(f) runCertPipeline(f) };
 ['dragover','dragenter'].forEach(x=>$('#certDrop').addEventListener(x,e=>{ e.preventDefault(); $('#certDrop').classList.add('over') }));
 $('#certDrop').addEventListener('dragleave',()=>$('#certDrop').classList.remove('over'));
