@@ -5,7 +5,12 @@
 //   tasks 한 행 = "특정 사원(emp_no)에게 할당된 업무". 직원 화면은 자기 행만, 관리자 화면은 전체 행을 집계한다.
 const path = require('path');
 const fs = require('fs');
-const { DatabaseSync } = require('node:sqlite');
+let DatabaseSync;
+try {
+  ({ DatabaseSync } = require('node:sqlite'));
+} catch (e) {
+  throw new Error(`이 런타임(Node ${process.version})에서 내장 node:sqlite 를 불러올 수 없습니다: ${e.message}`);
+}
 
 // DATA_DIR: 기본 ./data, Vercel 은 /tmp/gbsa-data, 영구 디스크가 있으면 DATA_DIR 환경변수로 지정 (lib/paths.js)
 const { DATA_DIR } = require('./lib/paths');

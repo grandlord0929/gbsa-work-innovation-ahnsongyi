@@ -7,7 +7,9 @@
 const path = require('path');
 const { isAuthorized } = require('../lib/security');
 
-process.on('uncaughtExceptionMonitor', (e, origin) => console.error(`❌ [${origin}]`, e));
+// 처리되지 않은 예외/거부를 런타임 로그(Vercel Logs)에 남긴다. (프로세스 동작은 바꾸지 않는 monitor / 로그 전용 리스너)
+process.on('uncaughtExceptionMonitor', (e, origin) => console.error(`❌ [uncaughtException:${origin}]`, e));
+process.on('unhandledRejection', (reason) => console.error('❌ [unhandledRejection]', reason));
 
 let app = null;
 let loadError = null;
