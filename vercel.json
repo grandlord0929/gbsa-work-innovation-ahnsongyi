@@ -5,10 +5,10 @@
   "outputDirectory": "public",
   "cleanUrls": true,
   "functions": {
-    "api/index.js": { "maxDuration": 30, "includeFiles": "employees.xlsx" }
+    "api/app.js": { "maxDuration": 30, "includeFiles": "employees.xlsx" }
   },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api" }
+    { "source": "/api/(.*)", "destination": "/api/app" }
   ],
   "headers": [
     {
