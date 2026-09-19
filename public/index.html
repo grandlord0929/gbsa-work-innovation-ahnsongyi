@@ -274,7 +274,7 @@ async function api(path, opts={}){
   });
   if(!res.ok){
     let data; try{ data = await res.json(); }catch(e){ data = { error: res.statusText }; }
-    const err = new Error(data.error || data.message || `요청 실패 (${res.status})`);
+    const err = new Error(data.error || data.message || `요청 실패 (${res.status}) ${path.split('?')[0]}`);
     err.status = res.status; err.data = data;
     throw err;
   }

@@ -1,9 +1,8 @@
 # 의존성
 node_modules/
 
-# 사원 명부 (가상 DB 파일, 개인정보 형식) — 배포 시 scripts/ensure-employees.js 가 샘플 자동 생성
-employees.xlsx
-employees*.xlsx
+# employees.xlsx(가상 사원 DB)는 Vercel 배포에 함께 올라가야 하므로 Git 관리 대상이다 (ignore 하지 않음).
+# 엑셀이 열려 있을 때 생기는 임시 잠금 파일만 제외
 ~$*.xlsx
 
 # 로컬 DB (SQLite) 및 백업/WAL

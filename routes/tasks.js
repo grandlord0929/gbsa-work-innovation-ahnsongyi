@@ -46,7 +46,7 @@ function certFromBody(body = {}) {
 
 function recordSubmission(taskId, file, cert, matchMethod) {
   transaction(() => {
-    db.prepare(`UPDATE tasks SET status='done', updated_at=datetime('now','localtime') WHERE id=?`).run(taskId);
+    db.prepare(`UPDATE tasks SET status='done', updated_at=datetime('now','+9 hours') WHERE id=?`).run(taskId);
     db.prepare(`
       INSERT INTO submissions (task_id, file_name, file_path, course_name, issuer, completed_date, ocr_text, match_method)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -71,7 +71,7 @@ function attachCert(task) {
 function withFreshStatus(task) {
   const status = recomputeStatus(task.due, task.status);
   if (status !== task.status) {
-    db.prepare(`UPDATE tasks SET status=?, updated_at=datetime('now','localtime') WHERE id=?`).run(status, task.id);
+    db.prepare(`UPDATE tasks SET status=?, updated_at=datetime('now','+9 hours') WHERE id=?`).run(status, task.id);
     task.status = status;
   }
   return attachCert(task);
@@ -177,7 +177,7 @@ router.patch('/:id', wrap((req, res) => {
     return res.status(400).json({ error: '수정할 필드가 없습니다.' });
   }
   const setClause = Object.keys(updates).map((k) => `${k}=@${k}`).join(', ');
-  db.prepare(`UPDATE tasks SET ${setClause}, updated_at=datetime('now','localtime') WHERE id=@id`)
+  db.prepare(`UPDATE tasks SET ${setClause}, updated_at=datetime('now','+9 hours') WHERE id=@id`)
     .run({ ...updates, id: req.params.id });
 
   res.json(getTask(req.params.id));

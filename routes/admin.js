@@ -5,7 +5,7 @@ const { listEmployees, listDepartments } = require('../lib/excelDb');
 
 const router = express.Router();
 
-const OVERDUE = "status!='done' AND due < date('now','localtime')";
+const OVERDUE = "status!='done' AND due < date('now','+9 hours')";
 const pct = (done, total) => (total ? Math.round((done / total) * 100) : 0);
 
 function overview() {

@@ -1,5 +1,10 @@
-# Vercel에는 정적 프론트(public/)만 올린다. 백엔드/DB/사원명부는 업로드하지 않는다.
-*
-!public
-!public/**
-!vercel.json
+# CLI(vercel deploy)로 올릴 때 제외: 로컬 DB/업로드, 환경변수, 다른 호스팅 설정
+# (employees.xlsx 는 함수 번들에 포함되어야 하므로 제외하지 않는다)
+data
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
+node_modules
+render.yaml

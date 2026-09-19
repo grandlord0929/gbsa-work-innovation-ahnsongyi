@@ -2,14 +2,13 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "buildCommand": "",
-  "installCommand": "",
   "outputDirectory": "public",
   "cleanUrls": true,
+  "functions": {
+    "api/index.js": { "maxDuration": 30, "includeFiles": "employees.xlsx" }
+  },
   "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://REPLACE-WITH-YOUR-SERVICE.onrender.com/api/:path*"
-    }
+    { "source": "/api/(.*)", "destination": "/api" }
   ],
   "headers": [
     {
@@ -19,6 +18,12 @@
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "Referrer-Policy", "value": "no-referrer" },
         { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
       ]
     }
   ]

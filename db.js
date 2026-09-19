@@ -7,8 +7,8 @@ const path = require('path');
 const fs = require('fs');
 const { DatabaseSync } = require('node:sqlite');
 
-// DATA_DIR: 영구 디스크를 붙인 호스팅에서 DB/업로드 위치를 바꿀 때 사용 (기본: ./data)
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+// DATA_DIR: 기본 ./data, Vercel 은 /tmp/gbsa-data, 영구 디스크가 있으면 DATA_DIR 환경변수로 지정 (lib/paths.js)
+const { DATA_DIR } = require('./lib/paths');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS requests (
   requester_dept TEXT NOT NULL,
   target_dept TEXT NOT NULL,
   due TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now','+9 hours'))
 );
 
 CREATE TABLE IF NOT EXISTS tasks (
@@ -43,8 +43,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   emp_name TEXT,
   emp_dept TEXT,
   request_id INTEGER,
-  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now','+9 hours')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now','+9 hours'))
 );
 
 CREATE TABLE IF NOT EXISTS submissions (
@@ -52,14 +52,14 @@ CREATE TABLE IF NOT EXISTS submissions (
   task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
   file_name TEXT,
   file_path TEXT,
-  submitted_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  submitted_at TEXT NOT NULL DEFAULT (datetime('now','+9 hours'))
 );
 
 CREATE TABLE IF NOT EXISTS chat_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   question TEXT NOT NULL,
   answer TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now','+9 hours'))
 );
 `);
 

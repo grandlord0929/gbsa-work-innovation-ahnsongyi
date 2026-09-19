@@ -1,9 +1,16 @@
+// D-day/마감 판정은 한국 기준. Vercel 등 UTC 서버에서는 한국 시간 0~9시에 날짜가 하루 어긋나므로
+// 어떤 Date 계산보다 먼저 시간대를 고정한다. (SQLite 쪽은 '+9 hours' 고정 오프셋 사용)
+process.env.TZ = process.env.APP_TZ || 'Asia/Seoul';
+
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const { basicAuth, securityHeaders, assertProductionSafe } = require('./lib/security');
 
 assertProductionSafe(); // 운영 환경에서 접근 암호 없이 공개되는 것을 차단
+
+// 사원명부(employees.xlsx)는 Git에 없으므로 없으면 가상 사원 200명을 생성 (Vercel 은 /tmp 에 생성)
+require('./scripts/ensure-employees').ensureEmployees();
 
 require('./db'); // 스키마 생성/마이그레이션
 const { seedIfEmpty } = require('./lib/assign');
@@ -89,8 +96,14 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Internal Server Error' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`GBSA 리마인더 백엔드 서버 실행 중: 포트 ${PORT} (http://localhost:${PORT})`);
-  console.log(`접근 암호(Basic Auth): ${process.env.BASIC_AUTH_PASS ? '사용' : '미사용 (로컬 개발용)'}`);
-  console.log(`헬스체크: /api/health`);
-});
+// Vercel 은 app 을 함수 핸들러로 직접 호출하므로 listen 하지 않는다 (api/index.js 가 이 앱을 export).
+// `node server.js` 로 직접 실행(로컬/Render)할 때만 포트를 연다.
+if (require.main === module) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`GBSA 리마인더 백엔드 서버 실행 중: 포트 ${PORT} (http://localhost:${PORT})`);
+    console.log(`접근 암호(Basic Auth): ${process.env.BASIC_AUTH_PASS ? '사용' : '미사용 (로컬 개발용)'}`);
+    console.log(`헬스체크: /api/health`);
+  });
+}
+
+module.exports = app;
