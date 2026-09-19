@@ -1,20 +1,22 @@
 {
   "name": "gbsa-reminder-backend",
   "version": "1.0.0",
-  "description": "GBSA 지능형 통합 업무 리마인더 시스템 - 백엔드 API + 프론트 (Express + SQLite)",
+  "description": "GBSA 지능형 통합 업무 리마인더 시스템 - 백엔드 API + 프론트 (Express + Supabase)",
   "main": "server.js",
   "private": true,
   "scripts": {
     "start": "node server.js",
-    "dev": "node --env-file-if-exists=.env server.js"
+    "dev": "node --env-file-if-exists=.env server.js",
+    "seed": "node --env-file-if-exists=.env scripts/seedSupabase.js",
+    "test": "node --test \"test/*.test.js\""
   },
   "engines": {
     "node": "24.x"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
     "cors": "^2.8.5",
     "express": "^4.19.2",
-    "multer": "^2.0.1",
-    "xlsx": "^0.18.5"
+    "multer": "^2.0.1"
   }
 }

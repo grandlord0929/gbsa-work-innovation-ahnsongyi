@@ -253,7 +253,7 @@ footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
 
 <div id="toasts" aria-live="polite"></div>
 <div id="overlay" class="overlay" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle"><div class="modal-h"><h2 id="mTitle"></h2><button class="x" id="mClose" aria-label="닫기">×</button></div><div class="modal-b" id="mBody"></div></div></div>
-<footer>ⓒ 경기도경제과학진흥원 · AI 업무 혁신 해커톤 시연용 (사원 DB: employees.xlsx · 백엔드 API 연동)</footer>
+<footer>ⓒ 경기도경제과학진흥원 · AI 업무 혁신 해커톤 시연용 (사원 DB: Supabase(PostgreSQL) · 백엔드 API 연동)</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
@@ -346,7 +346,7 @@ $('#tabEmployee').onclick=()=>setMode('employee');
 $('#tabAdmin').onclick=()=>setMode('admin');
 window.addEventListener('pagehide',markSeen);
 
-/* ---------- 로그인 사원 (엑셀 사원 DB) ---------- */
+/* ---------- 로그인 사원 (Supabase 사원 DB) ---------- */
 function renderMe(){
   const admin = mode==='admin';
   $('#meAvatar').textContent = admin ? '관' : (me?me.name[0]:'-');
@@ -846,7 +846,7 @@ async function init(){
     me=employees.find(e=>e.empNo===saved)||await api('/api/me');
     buildMeSelect(); renderMe(); welcome();
   }catch(e){
-    $('#empError').hidden=false; $('#empError').textContent='사원 DB(employees.xlsx)를 불러오지 못했습니다: '+e.message;
+    $('#empError').hidden=false; $('#empError').textContent='사원 DB(Supabase)를 불러오지 못했습니다: '+e.message;
     $('#meName').textContent='사원 DB 오류'; $('#cards').innerHTML='';
     return;
   }

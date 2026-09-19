@@ -1,92 +1,97 @@
-# 배포 가이드 (GitHub Private + Render 무료)
+# 배포 가이드 (GitHub Private + Vercel/Render + Supabase)
 
-팀원 5~6명이 언제든 접속해 테스트하는 용도입니다. **권장 구성: Render 1개 서비스** (Express가 API와 화면을 함께 서빙).
-Vercel에도 배포할 수 있지만 서버리스 특성상 **데이터가 휘발되고 인스턴스마다 갈라질 수 있어** 공유 시연에는 Render를 권장합니다 (아래 Vercel 배포 섹션 참고).
+팀원 5~6명이 언제든 접속해 테스트하는 용도입니다. 데이터는 **Supabase(PostgreSQL)** 에 저장되므로 서버가 재시작/재배포/콜드 스타트되어도 유지되고, 인스턴스가 여러 개여도 모두 같은 데이터를 봅니다. (이전 SQLite/엑셀 방식의 "데이터가 휘발되고 인스턴스마다 갈라지는" 한계가 사라졌습니다.)
 
 ## 0. 보안 요약 (먼저 읽기)
 
 | 위험 | 대응 |
 |---|---|
-| 저장소가 Private이어도 **배포된 URL은 공개**됨 (이 앱엔 로그인이 없음) | `BASIC_AUTH_PASS` 접근 암호 필수. 운영(`NODE_ENV=production`)에서 암호가 없으면 서버가 **시작을 거부**함 |
-| DB/업로드/비밀번호 유출 | `.gitignore`로 `*.db*`, `.env`, `uploads/` 제외 (검증 완료) |
-| 사원 명부(`employees.xlsx`)는 **Git에 포함**됨 (Vercel 배포 번들에 필요) | 가상(허구) 명단만 사용하세요. **실제 직원 정보가 들어가면 안 됩니다.** 한 번 커밋되면 이력에 남으므로, 실제 데이터를 넣었다면 파일 삭제만으로는 부족합니다 |
-| 명부 파일이 배포에 없을 때 | 가상 사원 200명(홍길동 포함)을 자동 생성해 서비스는 유지 |
+| 저장소가 Private이어도 **배포된 URL은 공개**됨 (이 앱엔 로그인이 없음) | `BASIC_AUTH_PASS` 접근 암호 필수. 운영(`NODE_ENV=production`)에서 암호가 없으면 서버가 시작을 거부하고 오류 메시지를 응답 |
+| **`SUPABASE_KEY`(service_role) 유출** = DB 전체 읽기/쓰기/삭제 권한 유출 | 서버 환경변수로만 사용. 저장소·채팅·이슈·프론트·로그에 절대 넣지 말 것. `.env` 는 `.gitignore` 처리. 유출 의심 시 Supabase 대시보드에서 즉시 재발급(Rotate) |
+| DB 직접 접근 | 모든 테이블에 RLS 를 켜고 정책을 만들지 않음 → anon 키로는 어떤 데이터도 접근 불가 (`supabase/schema.sql`) |
+| 허구 데이터 | 시드 사원 200명은 가상 데이터입니다. **실제 직원 정보를 넣지 마세요.** |
 | 검색엔진 노출 / CORS | `X-Robots-Tag: noindex`, CORS 기본 비활성 |
 
-- 암호는 **저장소·채팅·이슈에 적지 말고** 팀원에게 개별 메신저로 전달하세요. 유출 시 Render 대시보드에서 값을 바꾸면 즉시 무효화됩니다.
-- 이미 커밋된 뒤에 비밀이 발견되면 파일 삭제만으로는 부족합니다(이력에 남음). 즉시 해당 비밀을 폐기·교체하세요.
-- 알려진 위험(수용): `xlsx@0.18.5`에 공개된 취약점(Prototype Pollution/ReDoS)이 있고 npm에는 수정본이 없습니다. 서버가 **직접 관리하는 명부 파일만** 읽고 사용자 업로드 엑셀은 파싱하지 않으므로 현재 구조에서는 악용 경로가 없습니다. 사용자 업로드 엑셀을 받게 되면 교체가 필요합니다.
+- 비밀값(`SUPABASE_KEY`, `BASIC_AUTH_PASS`)은 팀원에게 **개별 메신저**로 전달하세요. 채팅방/이슈/커밋에 적지 마세요.
+- 이미 커밋된 비밀은 파일 삭제만으로는 부족합니다(이력에 남음). 즉시 폐기·교체하세요.
 
-## 1. GitHub Private 저장소에 올리기
+## 1. Supabase 준비
 
-로컬에는 이미 커밋이 만들어져 있습니다(저장소 루트 = `gbsa-backend`). 원격만 연결하면 됩니다.
+1. https://supabase.com → New project (리전은 가까운 곳, 예: Northeast Asia (Seoul))
+2. **SQL Editor** → New query → `supabase/schema.sql` 전체 붙여 넣고 **Run**
+3. **Project Settings → API** 에서 확인
+   - `Project URL` → `SUPABASE_URL`
+   - `service_role` (secret) 키 → `SUPABASE_KEY` — **anon/public 키가 아님**
+4. 로컬에서 초기 데이터 삽입 (한 번만):
+   ```bash
+   cp .env.example .env    # SUPABASE_URL, SUPABASE_KEY 입력
+   npm install
+   npm run seed
+   ```
+   - 시드가 `✓ Supabase 연결 및 테이블 확인 완료`를 출력하면 키/스키마가 정상입니다.
+   - 서버 시작 후 사원이 비어 있으면 화면의 「시연 데이터 초기화」 버튼(`POST /api/demo/reset`)도 사원을 시드합니다.
 
-**방법 A — 웹에서 만들고 연결**
-1. GitHub → New repository → 이름 `gbsa-reminder`, **Private** 선택, README/.gitignore 추가 **체크 해제** → Create
-2. 터미널에서:
+## 2. GitHub Private 저장소
+
 ```bash
-cd gbsa-backend
-git remote add origin https://github.com/<계정또는조직>/gbsa-reminder.git
+git remote add origin https://github.com/<계정>/<저장소>.git
 git push -u origin main
 ```
-처음 푸시할 때 Windows 자격 증명 창이 뜨면 브라우저로 GitHub 로그인하면 됩니다. (비밀번호/토큰을 명령어나 파일에 직접 적지 마세요.)
+- 팀원 초대: Settings → Collaborators
+- 확인: 파일 목록에 `.env` 가 **없는지** 확인
 
-**방법 B — GitHub CLI**
-```bash
-gh auth login
-cd gbsa-backend
-gh repo create gbsa-reminder --private --source . --remote origin --push
-```
+## 3. Vercel 배포
 
-3. 팀원 초대: 저장소 → Settings → Collaborators → Add people
-4. 확인: 저장소 페이지에 **Private** 배지가 보이는지, 파일 목록에 `.env`·`data/`가 **없는지** 확인 (`employees.xlsx`는 있어야 정상)
-
-## 2. Render 배포 (무료)
-
-1. https://render.com 가입 → Dashboard → **New → Blueprint**
-2. GitHub 연결 시 Private 저장소 접근을 허용하고 `gbsa-reminder` 선택 → `render.yaml`이 자동 인식됨 → **Apply**
-3. 배포가 끝나면 `https://gbsa-reminder-xxxx.onrender.com` 주소가 생깁니다.
-4. 접근 암호 확인: 서비스 → **Environment** → `BASIC_AUTH_PASS` (Render가 랜덤 생성). 아이디는 `gbsa`. 팀원에게 개별 전달.
-5. 접속 시 브라우저가 아이디/암호를 물어봅니다.
-
-무료 플랜 특성 (팀에 미리 공유):
-- **15분간 접속이 없으면 잠들고**, 다음 접속 때 깨어나는 데 약 30~60초 걸립니다.
-- 디스크가 **임시**라서 재시작/재배포/잠들었다 깨어날 때 **DB와 업로드가 초기화**되고 초기 시드가 다시 생성됩니다. (제출 이력이 사라질 수 있음 → 시연 전에 화면의 「시연 데이터 초기화」를 쓰는 용도로 생각하세요.) 영구 보관이 필요하면 유료 플랜의 Disk를 붙이고 `DATA_DIR`을 그 경로로 지정하세요.
-- 5~6명이 동시에 제출/발송을 눌러도 동작하지만, 모두 **같은 데이터**를 봅니다. 관리자 화면에서 시연 초기화를 누르면 모두의 데이터가 초기화됩니다.
-
-## Vercel 배포 (Express API + 화면 통합)
-
-`vercel.json` + `api/index.js`로 **화면(`public/`)은 CDN, Express API는 서버리스 함수 1개**로 배포됩니다.
+`vercel.json` + `api/app.js` 로 **화면(`public/`)은 CDN, Express API는 서버리스 함수 1개**로 배포됩니다.
 
 ```
 /        → public/index.html (CDN 정적)
-/api/*   → vercel.json rewrites → api/index.js → server.js (Express 앱을 export)
+/api/*   → vercel.json rewrites → api/app.js → lib/handler.js → server.js (Express)
 ```
 
 **필수 환경변수** (Project → Settings → Environment Variables, Production·Preview 모두)
 
-| 이름 | 값 | 비고 |
-|---|---|---|
-| `BASIC_AUTH_PASS` | 긴 랜덤 문자열 | **없으면 함수가 기동을 거부**해 `/api`가 500 (Vercel은 `NODE_ENV=production`) |
-| `BASIC_AUTH_USER` | `gbsa` | 선택 (기본값 gbsa) |
+| 이름 | 값 |
+|---|---|
+| `SUPABASE_URL` | Supabase Project URL |
+| `SUPABASE_KEY` | Supabase **service_role** 키 |
+| `BASIC_AUTH_PASS` | 긴 랜덤 문자열 (**없으면 함수가 기동을 거부**하고 `/api` 가 500 + 안내 메시지) |
+| `BASIC_AUTH_USER` | `gbsa` (선택) |
 
-Framework Preset은 **Other**, Build/Output 설정은 `vercel.json`이 지정하므로 건드리지 않습니다. Node 버전은 `package.json`의 `engines`(24.x)를 따르며 Project Settings의 Node.js Version도 24.x여야 합니다(`node:sqlite` 사용).
+환경변수를 추가/변경한 뒤에는 **재배포(Redeploy)** 해야 반영됩니다. Framework Preset 은 **Other**, Node 버전은 `package.json` 의 `engines`(24.x)를 따릅니다.
 
-**Vercel(서버리스)의 구조적 한계 — 팀에 미리 공유**
-- **DB·업로드는 `/tmp`(휘발성)**: 함수 인스턴스가 새로 뜰 때마다(콜드 스타트, 유휴 후, 재배포) 초기 시드가 **다시 생성되어 제출 이력이 사라집니다.** 사원명부(`employees.xlsx`)는 읽기 전용으로 배포 번들(`vercel.json`의 `includeFiles`)에서 `process.cwd()` 기준으로 읽습니다.
-- **인스턴스별로 DB가 따로**일 수 있음: 요청이 서로 다른 인스턴스로 가면 "직원 화면에서 제출했는데 관리자 화면에 안 보임"이 생길 수 있습니다. 5~6명이 **같은 데이터를 봐야 하는 시연이면 Render를 쓰세요.** (근본 해결은 Turso/Vercel Postgres 같은 외부 DB로 교체)
-- **요청 본문 4.5MB 제한**: 이보다 큰 수료증 파일은 업로드 시 413 오류가 납니다.
-- 화면 HTML은 CDN이 직접 서빙하므로 암호 없이 열립니다(데이터 없음). **암호는 `/api`에만** 걸리며, 처음 API를 호출할 때 브라우저가 아이디/암호를 묻습니다.
-- 시간대는 서버에서 `Asia/Seoul`로 고정합니다(Vercel은 UTC라 한국 새벽에 D-day가 하루 어긋나는 것을 방지).
+**Vercel 특성 (이 저장소에서 확인된 사항)**
+- Hobby 플랜은 배포당 **함수 12개 한도**입니다. `api/` 아래 파일 1개 = 함수 1개이므로 진단용 파일을 늘리지 마세요.
+- 진입점은 **Node http 서버 스타일**(`http.createServer(handler).listen(0)`)입니다. 함수 export 에 `listen` 속성을 다는 방식은 응답 없이 멈추는 문제가 있었고, 일반 함수로 export 하면 Vercel 헬퍼가 요청 본문을 먼저 소비해 JSON/multipart 요청이 깨집니다.
+- 요청 본문은 **4.5MB 제한**이 있습니다. 더 큰 파일은 413 이 납니다.
+- 화면 HTML 은 CDN 이 직접 서빙하므로 암호 없이 열립니다(데이터 없음). **암호는 `/api` 에만** 걸리며 처음 API 호출 때 브라우저가 아이디/암호를 묻습니다.
 
-**배포 후 확인**: `https://<프로젝트>.vercel.app/api/health` → `{"ok":true,...}` (암호 없이 열림), `/api/employees` → 암호창 → 200명. 500이면 Vercel → Deployments → Functions 로그를 확인하세요(대부분 `BASIC_AUTH_PASS` 누락).
+**배포 후 확인**
+1. `https://<사이트>/api/health` → `{"ok":true,...}` (암호 없이 열림)
+2. `https://<사이트>/api/_boot?step=info` → `BASIC_AUTH_PASS/SUPABASE_URL/SUPABASE_KEY` 가 모두 `true` 인지 (값은 표시되지 않음, 암호 필요)
+3. `https://<사이트>/api/_boot?step=supabase` → 테이블 5개가 모두 `ok` 인지
+4. 화면 접속 → 직원 모드에 업무가 보이는지
 
-## 3. 로컬 실행
+오류별 원인
+| 응답 | 원인 |
+|---|---|
+| 500 `BASIC_AUTH_PASS 가 설정되지 않아...` | Vercel 환경변수 누락 (설정 후 재배포) |
+| 503 `SUPABASE_URL / SUPABASE_KEY 환경변수가 설정되지 않았습니다` | Supabase 환경변수 누락 |
+| 503 `DB 테이블을 찾을 수 없습니다... schema.sql` | SQL Editor 에서 스키마 미실행 |
+| 500 `DB 오류(...): Invalid API key` / `permission denied` | 키가 틀렸거나 anon 키를 넣음 → service_role 키 사용 |
+| 404 `사원 DB가 비어 있습니다` | `npm run seed` 미실행 |
+
+## 4. Render 배포 (대안)
+
+1. https://render.com → **New → Blueprint** → 저장소 선택 → `render.yaml` 적용
+2. Environment 탭에서 `SUPABASE_URL`, `SUPABASE_KEY` 를 직접 입력 (`BASIC_AUTH_PASS` 는 자동 생성됨)
+3. Render 무료 플랜은 15분 유휴 후 잠들고 깨어나는 데 30~60초 걸립니다. 데이터는 Supabase 에 있어 유지됩니다.
+
+## 5. 로컬 실행
 
 ```bash
 npm install
-cp .env.example .env      # 필요 시 BASIC_AUTH_PASS 등 입력
-npm run dev               # .env 자동 로드, employees.xlsx 없으면 가상 명부 자동 생성
+cp .env.example .env
+npm run seed
+npm run dev
 ```
-
-환경변수는 `.env.example` 참고. `PORT`는 `process.env.PORT || 4000`로 호스팅이 주입하는 값을 그대로 씁니다.

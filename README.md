@@ -1,86 +1,78 @@
-# GBSA 지능형 통합 업무 리마인더 — 백엔드 + 2단계 OCR 연동 가이드
+# GBSA 지능형 통합 업무 리마인더 시스템
 
-## 3단계: 직원 ↔ 관리자 양방향 연동 (employees.xlsx 기반)
+Express 백엔드 + 정적 프론트(`public/index.html`) + **Supabase(PostgreSQL)**. 직원 모드 ↔ 관리자 모드가 같은 DB를 통해 양방향으로 연동됩니다.
 
-**데이터 모델**: `requests`(제출요청 1건) 1 ── N `tasks`(사원별 업무 1행, `emp_no`/`emp_dept` 포함). 사원·부서 목록은 `employees.xlsx`(사번·사원명·부서명)에서 읽고, 파일을 고치면 서버 재시작 없이 반영됩니다.
-직원 화면은 로그인 사원의 행만, 관리자 화면은 전체 행을 집계합니다.
+> 데이터 저장소는 로컬 파일(엑셀/SQLite)에서 **Supabase 클라우드 DB로 완전히 전환**되었습니다. 재시작·재배포·서버리스 콜드 스타트와 무관하게 데이터가 유지되고, 여러 사람이 같은 데이터를 봅니다.
+
+## 빠른 시작
+
+### 1. Supabase 준비 (최초 1회)
+1. https://supabase.com 에서 프로젝트 생성
+2. 대시보드 → **SQL Editor** → New query → [`supabase/schema.sql`](supabase/schema.sql) 전체를 붙여 넣고 **Run** (테이블 5개 생성 + RLS 활성화)
+3. 대시보드 → **Project Settings → API**에서 `Project URL` 과 **`service_role` 키**를 확인
+
+### 2. 환경변수 설정
+```bash
+cp .env.example .env     # 그리고 SUPABASE_URL / SUPABASE_KEY 채우기
+```
+| 이름 | 설명 |
+|---|---|
+| `SUPABASE_URL` | `https://<project-ref>.supabase.co` |
+| `SUPABASE_KEY` | **service_role 키** (서버 전용 비밀키, anon 키 아님) |
+| `BASIC_AUTH_PASS` | 접근 암호. 공개 배포에서는 필수 |
+| `BASIC_AUTH_USER` | 접근 아이디 (기본 `gbsa`) |
+| `DEMO_USER_EMPNO` | 직원 모드 기본 로그인 사번 (기본: 홍길동) |
+
+### 3. 초기 데이터 시드 + 실행
+```bash
+npm install
+npm run seed             # 가상 사원 200명 + 기본 업무 801건 삽입 (사원은 upsert 로 멱등)
+npm run dev              # http://localhost:4000
+```
+- `npm run seed -- --reset` : 업무/제출/요청/대화 이력을 모두 지우고 초기 상태로 다시 시드 (사원 유지)
+- 화면의 「↺ 시연 데이터 초기화」 버튼도 같은 초기화를 수행합니다(`POST /api/demo/reset`).
+- 테이블이 없거나 키가 잘못되면 시드 스크립트가 원인을 안내합니다.
+
+## 구조
+
+```
+api/app.js            Vercel 함수 진입점 (Node http 서버 스타일)
+lib/handler.js        요청 핸들러: Express 지연 로드, /api/_boot 진단, 오류를 JSON 으로 응답
+server.js             Express 앱 (라우팅, 접근 암호, 보안 헤더). `node server.js` 로도 직접 실행
+lib/supabaseClient.js Supabase 클라이언트 (환경변수 → 클라이언트, 오류 변환, 1000행 페이지네이션)
+lib/data.js           데이터 접근 계층 (사원/업무/제출/집계/채팅)
+lib/assign.js         부서 단위 제출요청 발송
+lib/seedData.js       가상 사원 200명 + 초기 업무 생성, 시드/초기화
+routes/*.js           tasks, admin, stats, chat, demo, analyze
+scripts/seedSupabase.js  시드 스크립트
+supabase/schema.sql   테이블 정의 + RLS
+test/                 API 테스트 (npm test)
+```
+
+## 데이터 모델
+`employees(emp_no, name, dept)` · `requests`(제출요청 1건) 1 ─ N `tasks`(사원별 업무 1행) 1 ─ N `submissions`(제출 이력, 수료증 OCR 결과) · `chat_logs`
+
+- 직원 화면은 로그인 사원의 `tasks` 행만, 관리자 화면은 전체 행을 서버에서 집계합니다(PostgREST 는 GROUP BY 미지원 → 필요한 컬럼만 1000행 단위로 읽어 집계).
+- 시각은 KST(`YYYY-MM-DD HH:MM:SS`), 마감 상태(긴급/주의/기한초과)는 조회 시점에 KST 오늘 기준으로 계산합니다.
+- **업로드한 수료증 파일 자체는 저장하지 않고**, 파일명과 OCR 추출값(교육명·발급기관·이수일자)만 제출 이력에 남깁니다. (원본 보관이 필요하면 Supabase Storage 연동을 추가하세요.)
+
+## API
 
 | 방향 | 동작 | API |
 |---|---|---|
-| 직원 → 관리자 | [제출완료] / 수료증 OCR 업로드 → 해당 사원 행이 `done` → 관리자 부서별 제출률·사원별 표에 즉시 반영 | `POST /api/tasks/:id/submit`, `POST /api/tasks/cert-upload` (`empNo`) |
-| 관리자 → 직원 | 부서 선택 + 업무명 + 마감일 → 해당 부서 사원 전원에게 업무 행 생성 → 직원 목록에 NEW 표시 | `POST /api/tasks/bulk` `{tasks:[{title,cat,due,targetDept('전체'\|부서명),dept?}]}` |
-| 조회 | 사원 체크리스트 / 관리자 집계 / 사원별 현황 | `GET /api/tasks?empNo=`, `GET /api/admin/overview`, `GET /api/admin/employees?dept=&status=&q=&requestId=&page=`, `GET /api/admin/departments` |
-| 기타 | 로그인 사원, 시연 초기화 | `GET /api/me`, `POST /api/demo/reset` |
+| 직원 → 관리자 | [제출완료] / 수료증 OCR 업로드 → 해당 사원 행이 `done` | `POST /api/tasks/:id/submit`, `POST /api/tasks/cert-upload` (`empNo`) |
+| 관리자 → 직원 | 부서 선택 + 업무명 + 마감일 → 부서 사원 전원에게 업무 생성 | `POST /api/tasks/bulk` `{tasks:[{title,cat,due,targetDept('전체'\|부서명),dept?}]}` |
+| 조회 | 사원/업무/집계 | `GET /api/employees`, `/api/employees/search?q=`, `/api/me`, `/api/tasks?empNo=`, `/api/admin/overview`, `/api/admin/employees`, `/api/admin/departments`, `/api/stats` |
+| 기타 | 챗봇, 공문 분석, 시연 초기화 | `POST /api/chat`, `POST /api/analyze`, `POST /api/demo/reset`, `GET /api/health` |
 
-- **로그인 사원**: 엑셀에 `홍길동`이 있으면 홍길동, 없으면 바이오센터 첫 사원. `DEMO_USER_EMPNO=GBSA2026001 node server.js` 로 지정 가능. 화면 우측 상단 드롭다운으로 사원을 바꿔 볼 수 있습니다.
-- **초기 시드**: 4건의 전 직원 대상 요청 + 로그인 사원 개별 소명서 1건. 마감일은 실행일 기준 상대값이라 언제든 긴급/주의/기한초과가 보입니다. **로그인 사원 외 사원의 초기 제출 이력은 시연용 시뮬레이션 데이터**입니다.
-- 이전 구조(사원 구분 없는 공용 업무)의 DB가 있으면 시작 시 `data/gbsa.legacy-*.db`로 백업 후 새 구조로 초기화됩니다.
-- 관리자 집계 기준: 미제출 사원 = 미제출 업무가 1건 이상인 사원 수 / 기한 초과 = 마감이 지난 미제출 (사원×업무) 건수.
+`cert-upload` 응답: `200`(매칭 성공) · `422`(자동 특정 불가 → `candidates`) · `404`(대기 중인 교육 업무 없음) · `409`(이미 제출됨). 매칭 로직은 `lib/certMatch.js`.
 
-## 실행
-
+## 테스트
 ```bash
-npm install
-node server.js        # http://localhost:4000  (프론트 + API 한 서버)
+npm test
 ```
+- `test/api.test.js` : 인메모리 **가짜 Supabase**(`test/fakeSupabase.js`)로 전체 API 흐름 검증 (NOT NULL·CHECK·외래키·1000행 제한·필터 없는 update/delete 거부 재현)
+- `test/postgrest-requests.test.js` : 실제 `@supabase/supabase-js` 가 만드는 HTTP 요청 형태 검증
+- 두 테스트 모두 **실제 Supabase 에 접속하지 않습니다.** 실제 DB 와의 최종 확인은 `npm run seed` 성공 + 배포 후 `/api/_boot?step=supabase` 로 하세요.
 
-- Node.js 22.5+ 필요 (내장 `node:sqlite` 사용, 네이티브 빌드 없음). DB 파일: `data/gbsa.db` (첫 실행 시 자동 생성·시드)
-- **OCR(Tesseract.js)과 PDF 변환(pdf.js)은 CDN에서 로드**하므로 시연 PC가 인터넷에 연결되어 있어야 합니다.
-  한국어 언어 데이터(약 10MB+)는 첫 OCR 때 한 번 내려받고 이후 브라우저에 캐시됩니다 → **시연 전에 샘플 버튼을 한 번 눌러 미리 워밍업**하세요.
-
-## 2단계 파이프라인 (수료증 업로드 → 자동 제출)
-
-```
-[브라우저]                                              [서버]
- 파일(이미지/PDF) ─▶ ① 파일 읽기
-   PDF: pdf.js로 텍스트 레이어 추출(있으면 OCR 생략) / 스캔본이면 캔버스 렌더
- ─▶ ② Tesseract.js OCR (kor+eng)
- ─▶ ③ 정규식/키워드 추출: 교육명 · 발급기관 · 이수일자(YYYY-MM-DD)
- ─▶ ④ POST /api/tasks/cert-upload (multipart) ───────▶ 미제출 교육 업무와 매칭
-                                                       → tasks.status='done'
-                                                       → submissions 에 OCR 결과 저장
- ◀── 제출 완료된 업무 + 매칭 방식 ◀────────────────────
- ─▶ 카드/통계/AI 매니저 메시지 갱신
-```
-
-### `POST /api/tasks/cert-upload` (multipart/form-data)
-
-| 필드 | 설명 |
-|---|---|
-| `file` | 수료증 원본 (선택) |
-| `courseName` / `issuer` / `completedDate` | 프론트가 추출한 값 (선택, 날짜는 `YYYY-MM-DD`) |
-| `ocrText` | OCR 원문 (매칭 정확도용, 선택) |
-| `fileName` | 파일이 없을 때 파일명 (선택) |
-| `taskId` | 수동 지정 시 해당 업무로 강제 매칭 (선택) |
-
-`file`, `courseName`, `ocrText` 중 하나는 필요합니다.
-
-**응답**
-- `200` `{ matchedTask, matchedBy, score, cert, fileName }` — `matchedBy`: `keyword`(키워드 매칭) · `only-pending`(대기 교육 업무가 1건뿐) · `manual-select`(taskId 지정)
-- `422` `{ error, candidates:[{id,title,due}], cert }` — 자동으로 특정 불가. 프론트가 후보 버튼을 보여주고 선택한 `taskId`로 재호출
-- `404` — 제출 대기 중인 교육 업무 없음 / `400` — 입력 없음
-
-**매칭 로직** (`lib/certMatch.js`): 교육명+OCR 원문+파일명을 공백 제거 후, 업무 제목의 주제어(정보보안·개인정보·청렴·성희롱 등)가 겹치는 개수로 점수화. 최고점이 유일하면 자동 매칭.
-잘못된 업무를 조용히 완료 처리하지 않도록, 점수가 없고 대기 업무가 여러 건이면 자동 처리하지 않고 사용자에게 선택을 요청합니다.
-
-### 그 외 API 변경
-- `POST /api/tasks/:id/submit` — 동일한 수료증 필드(`courseName`, `issuer`, `completedDate`, `ocrText`)를 선택적으로 함께 저장
-- `GET /api/tasks` — 제출 완료 업무에 `cert`(교육명·발급기관·이수일자·매칭방식) 포함 → 카드에 표시
-- `POST /api/demo/reset` — 업무·제출 이력을 초기 시드로 되돌림 (화면의 "시연 데이터 초기화" 버튼)
-- DB: `submissions`에 `course_name, issuer, completed_date, ocr_text, match_method` 컬럼 추가 (기존 DB는 자동 마이그레이션)
-
-## 시연 모드 (「▶ 시연용 샘플 수료증 자동 입력」)
-
-AI 매니저 영역과 수료증 패널 두 곳에 버튼이 있습니다. 클릭하면:
-1. 샘플 수료증 이미지를 캔버스로 생성해 미리보기에 표시
-2. **실제 Tesseract.js OCR 실행** (스캔 애니메이션 + 진행률)
-3. 교육명 → 발급기관 → 이수일자가 하나씩 채워짐
-4. 서버 매칭 → 「2026년 하반기 정보보안 교육 이수증 제출」 카드가 제출완료로 바뀌며 강조, AI 매니저가 결과 안내
-
-인터넷/OCR 엔진을 쓸 수 없거나 35초 안에 끝나지 않으면 **내장 샘플 텍스트로 자동 폴백**하며, 화면과 채팅에 "내장 샘플 텍스트로 시연 중"이라고 명시합니다(실제 OCR인 것처럼 보이지 않음).
-이미 제출된 뒤에는 「↺ 시연 데이터 초기화」로 처음 상태로 되돌린 뒤 다시 시연하세요.
-
-## 알려진 한계
-- OCR 정확도는 이미지 품질에 좌우됩니다 (테스트에서 영문+한글 혼합 "ICT안전팀"이 "ICT El"로 오인식된 적 있음). 필드가 일부 비어도 키워드/원문으로 매칭을 시도하며, 모호하면 후보 선택으로 넘어갑니다.
-- 라벨(`교육명:` 등)이 있는 수료증에 가장 잘 동작하고, 라벨이 없는 서식은 보조 규칙(주제어·기관명 접미사)으로 추정합니다.
-- 관리자 화면의 공문 업로드도 이미지/PDF는 같은 브라우저 OCR을 사용합니다.
+배포 방법은 [DEPLOY.md](DEPLOY.md), 시연 모드(수료증 OCR)는 화면의 「▶ 시연용 샘플 수료증 자동 입력」 버튼을 참고하세요.

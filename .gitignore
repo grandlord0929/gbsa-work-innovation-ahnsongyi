@@ -1,25 +1,19 @@
 # 의존성
 node_modules/
 
-# employees.xlsx(가상 사원 DB)는 Vercel 배포에 함께 올라가야 하므로 Git 관리 대상이다 (ignore 하지 않음).
-# 엑셀이 열려 있을 때 생기는 임시 잠금 파일만 제외
-~$*.xlsx
+# 환경변수 (SUPABASE_KEY, BASIC_AUTH_PASS 등 비밀값) — 예시는 .env.example 만 커밋
+.env
+.env.*
+!.env.example
 
-# 로컬 DB (SQLite) 및 백업/WAL
+# 이전 버전(SQLite/엑셀)의 로컬 잔재
 *.db
 *.db-shm
 *.db-wal
 *.sqlite
 *.sqlite3
-
-# 환경변수 (비밀번호 등) — 예시는 .env.example 만 커밋
-.env
-.env.*
-!.env.example
-
-# 업로드된 수료증 등
-uploads/
-data/uploads/
+data/
+~$*.xlsx
 
 # 로그 / OS / 배포 도구 산출물
 *.log

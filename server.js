@@ -1,32 +1,21 @@
-// D-day/마감 판정은 한국 기준. Vercel 등 UTC 서버에서는 한국 시간 0~9시에 날짜가 하루 어긋나므로
-// 어떤 Date 계산보다 먼저 시간대를 고정한다. (SQLite 쪽은 '+9 hours' 고정 오프셋 사용)
+// 날짜/시각 계산은 lib/time.js 가 Asia/Seoul 을 명시해 처리하므로 서버 OS 시간대(Vercel 은 UTC)에 의존하지 않는다.
+// 로그 등 Date 기본 동작도 한국 기준이 되도록 프로세스 시간대도 맞춰 둔다.
 process.env.TZ = process.env.APP_TZ || 'Asia/Seoul';
 
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const { basicAuth, securityHeaders, assertProductionSafe } = require('./lib/security');
+const { listEmployees, getDefaultUser } = require('./lib/data');
+const { wrap } = require('./lib/http');
 
 // 운영 환경에서 접근 암호 없이 공개되는 것을 차단. 직접 실행(로컬/Render)이면 메시지만 출력하고 종료,
-// Vercel 에서는 예외가 api/index.js 로 전달되어 오류 응답으로 노출된다.
+// Vercel 에서는 예외가 진입점(lib/handler.js)으로 전달되어 오류 응답으로 노출된다.
 try {
   assertProductionSafe();
 } catch (e) {
   if (require.main === module) { console.error('❌ ' + e.message); process.exit(1); }
   throw e;
-}
-
-// 사원명부(employees.xlsx)는 Git에 없으므로 없으면 가상 사원 200명을 생성 (Vercel 은 /tmp 에 생성)
-require('./scripts/ensure-employees').ensureEmployees();
-
-require('./db'); // 스키마 생성/마이그레이션
-const { seedIfEmpty } = require('./lib/assign');
-
-// 최초 실행 시 사원 DB(엑셀) 기준으로 초기 업무를 배포한다. 엑셀이 없어도 서버는 뜨고, 오류 원인만 로그로 남긴다.
-try {
-  if (seedIfEmpty()) console.log('초기 시드 데이터를 생성했습니다.');
-} catch (error) {
-  console.error('❌ 초기 시드 실패 (employees.xlsx 확인):', error.message);
 }
 
 const tasksRouter = require('./routes/tasks');
@@ -51,44 +40,31 @@ app.get('/api/health', (req, res) => res.json({ ok: true, service: 'gbsa-reminde
 // 접근 암호 로그인 진입점: 브라우저 주소창 이동(top-level)으로 접근하면 인증 창이 확실히 뜨고,
 // 인증에 성공하면 화면으로 돌려보낸다. (Vercel 은 화면이 CDN 정적이라 API 호출로만 인증이 걸리기 때문)
 app.get('/api/login', (req, res) => res.redirect('/'));
-// ==========================================
-// [추가] 엑셀 사원 DB 조회를 위한 API 엔드포인트
-// ==========================================
-const { getEmployees, findEmployee } = require('./lib/excelDb');
 
-// 1. 전체 사원 목록 조회 API
-app.get('/api/employees', (req, res) => {
-  try {
-    const data = getEmployees();
-    res.json({ success: true, count: data.length, employees: data });
-  } catch (error) {
-    console.error('❌ /api/employees 에러:', error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+// ---- 사원 DB (Supabase employees 테이블) ----
+const toKorean = (e) => ({ 사번: e.empNo, 사원명: e.name, 부서명: e.dept }); // 프론트 호환 형태
 
-// 2. 사원 이름/사번/부서 검색 API (예: /api/employees/search?q=홍길동)
-app.get('/api/employees/search', (req, res) => {
-  try {
-    const data = findEmployee(String(req.query.q || '').trim());
-    res.json({ success: true, count: data.length, employees: data });
-  } catch (error) {
-    console.error('❌ /api/employees/search 에러:', error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+// 1. 전체 사원 목록
+app.get('/api/employees', wrap(async (req, res) => {
+  const data = (await listEmployees()).map(toKorean);
+  res.json({ success: true, count: data.length, employees: data });
+}));
 
-// 3. 직원 모드 로그인 사원 (홍길동이 사원 DB에 있으면 홍길동, 없으면 바이오센터 첫 사원)
-app.get('/api/me', (req, res) => {
-  try {
-    const me = require('./lib/excelDb').getDefaultUser();
-    if (!me) return res.status(404).json({ error: '사원 DB에 사원이 없습니다.' });
-    res.json(me);
-  } catch (error) {
-    console.error('❌ /api/me 에러:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
+// 2. 사원 이름/사번/부서 검색 (예: /api/employees/search?q=홍길동)
+app.get('/api/employees/search', wrap(async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  const data = (await listEmployees())
+    .filter((e) => !q || e.name.includes(q) || e.empNo.includes(q) || e.dept.includes(q))
+    .map(toKorean);
+  res.json({ success: true, count: data.length, employees: data });
+}));
+
+// 3. 직원 모드 로그인 사원 (홍길동 → 바이오센터 첫 사원 → 첫 사원, DEMO_USER_EMPNO 로 지정 가능)
+app.get('/api/me', wrap(async (req, res) => {
+  const me = await getDefaultUser();
+  if (!me) return res.status(404).json({ error: '사원 DB가 비어 있습니다. `npm run seed` 로 초기 데이터를 넣어 주세요.' });
+  res.json(me);
+}));
 
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/tasks', tasksRouter);
@@ -97,23 +73,22 @@ app.use('/api/stats', statsRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/demo', require('./routes/demo'));
 
-// 프론트엔드(public/index.html)를 같은 서버에서 정적으로 서빙
+// 프론트엔드(public/index.html)를 같은 서버에서 정적으로 서빙 (Vercel 에서는 CDN 이 직접 서빙)
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not Found' }));
 
-app.use((err, req, res, next) => {
+app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
   console.error(err);
   res.status(500).json({ error: err.message || 'Internal Server Error' });
 });
 
-// Vercel 은 app 을 함수 핸들러로 직접 호출하므로 listen 하지 않는다 (api/index.js 가 이 앱을 export).
-// `node server.js` 로 직접 실행(로컬/Render)할 때만 포트를 연다.
+// `node server.js` 로 직접 실행(로컬/Render)할 때만 포트를 연다. Vercel 은 api/app.js 가 이 앱을 사용한다.
 if (require.main === module) {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`GBSA 리마인더 백엔드 서버 실행 중: 포트 ${PORT} (http://localhost:${PORT})`);
     console.log(`접근 암호(Basic Auth): ${process.env.BASIC_AUTH_PASS ? '사용' : '미사용 (로컬 개발용)'}`);
-    console.log(`헬스체크: /api/health`);
+    console.log(`Supabase: ${process.env.SUPABASE_URL && process.env.SUPABASE_KEY ? '설정됨' : '❌ SUPABASE_URL / SUPABASE_KEY 미설정'}`);
   });
 }
 

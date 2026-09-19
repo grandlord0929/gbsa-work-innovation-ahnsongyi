@@ -1,10 +1,10 @@
-# CLI(vercel deploy)로 올릴 때 제외: 로컬 DB/업로드, 환경변수, 다른 호스팅 설정
-# (employees.xlsx 는 함수 번들에 포함되어야 하므로 제외하지 않는다)
+# CLI(vercel deploy)로 올릴 때 제외: 환경변수, 로컬 DB 잔재, 다른 호스팅 설정, 테스트
+.env
+.env.*
 data
 *.db
 *.db-shm
 *.db-wal
-.env
-.env.*
 node_modules
 render.yaml
+test
