@@ -64,6 +64,10 @@ function createFakeSupabase() {
     eq(c, v) { this.filters.push((r) => same(r[c], v)); this.hasFilter = true; return this; }
     neq(c, v) { this.filters.push((r) => r[c] != null && !same(r[c], v)); this.hasFilter = true; return this; }
     gte(c, v) { this.filters.push((r) => r[c] != null && Number(r[c]) >= Number(v)); this.hasFilter = true; return this; }
+    like(c, pat) {
+      const re = new RegExp('^' + String(pat).split('%').map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$');
+      this.filters.push((r) => r[c] != null && re.test(String(r[c]))); this.hasFilter = true; return this;
+    }
     in(c, vs) { this.filters.push((r) => vs.some((v) => same(r[c], v))); this.hasFilter = true; return this; }
     order(c, { ascending = true } = {}) { this.orders.push([c, ascending]); return this; }
     range(a, b) { this.from = a; this.to = b; return this; }
@@ -124,7 +128,16 @@ function createFakeSupabase() {
     }
   }
 
-  return { from: (t) => new Query(t), _tables: tables, _calls: calls };
+  // Storage (비공개 버킷) 흉내
+  const buckets = new Map();
+  const storage = {
+    createBucket: async (name) => { if (buckets.has(name)) return { data: null, error: { message: 'The resource already exists', statusCode: '409' } }; buckets.set(name, new Map()); return { data: { name }, error: null }; },
+    from: (name) => ({
+      upload: async (path, body) => { const b = buckets.get(name); if (!b) return { data: null, error: { message: 'Bucket not found' } }; if (b.has(path)) return { data: null, error: { message: 'The resource already exists' } }; b.set(path, Buffer.from(body)); return { data: { path }, error: null }; },
+      download: async (path) => { const b = buckets.get(name); const v = b && b.get(path); return v ? { data: new Blob([v]), error: null } : { data: null, error: { message: 'Object not found' } }; },
+    }),
+  };
+  return { from: (t) => new Query(t), storage, _tables: tables, _calls: calls, _buckets: buckets };
 }
 
 module.exports = { createFakeSupabase };

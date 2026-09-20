@@ -356,20 +356,72 @@ test('여러 줄 교육명은 서버 매칭·이력에 공백 정규화된 한 �
   else assert.equal(r.body.cert.course_name, '2026년 하반기 개인정보보호 및 정보 보안 교육');
 });
 
-test('성명을 못 읽은 수료증은 본인 확인(nameConfirmed) 후 제출되고 이력에 남는다', async () => {
+// ---- 본인 확인 제출 → 관리자 확인(승인 / 재제출 요청) ----
+const confirmUpload = (empNo, person, extra = {}) => api('/api/tasks/cert-upload', { method: 'POST', body: certForm({ empNo, courseName: '정보보안', ocrText: '정보보안 교육', nameConfirmed: 'true', ...extra }, '수료증.png', person) });
+
+test('성명을 못 읽은 수료증은 본인 확인 시 202 + 관리자 확인 대기(업무는 아직 미제출)', async () => {
   const noConfirm = await uploadAs('GBSA2026001', null);
   assert.equal(noConfirm.status, 403); assert.equal(noConfirm.body.confirmable, true);
-  const r = await api('/api/tasks/cert-upload', { method: 'POST', body: certForm({ empNo: 'GBSA2026001', courseName: '정보보안', ocrText: '정보보안 교육', nameConfirmed: 'true' }, '수료증.png', null) });
-  assert.equal(r.status, 200);
-  assert.equal(r.body.nameCheck.confirmedByUser, true);
-  assert.equal(r.body.nameCheck.isNameMatched, false);
+  const r = await confirmUpload('GBSA2026001', null);
+  assert.equal(r.status, 202);
+  assert.equal(r.body.review, 'pending');
+  assert.equal(r.body.matchedTask.status !== 'done', true);
+  assert.equal(r.body.matchedTask.review.state, 'pending');
+  const list = await api('/api/tasks?empNo=GBSA2026001');
+  const t = list.body.find((x) => x.id === r.body.matchedTask.id);
+  assert.equal(t.review.state, 'pending'); assert.notEqual(t.status, 'done');
+  const q = await api('/api/admin/reviews');
+  assert.equal(q.body.count >= 1, true);
+  const item = q.body.reviews.find((x) => x.taskId === t.id);
+  assert.equal(item.empName, '홍길동'); assert.equal(item.hasFile, true);
 });
 
-test('한 글자 차이(OCR 오인식 가능)는 본인 확인 후 제출, 명백히 다른 이름은 확인해도 거부', async () => {
-  const clear = await api('/api/tasks/cert-upload', { method: 'POST', body: certForm({ empNo: 'GBSA2026001', courseName: '개인정보', ocrText: '개인정보', nameConfirmed: 'true' }, '수료증.png', '강하율') });
+const myTask = async (empNo, id) => (await api('/api/tasks?empNo=' + empNo)).body.find((x) => x.id === id);
+
+test('관리자 확인: 승인하면 제출완료, 이미지 열람 가능, 중복 처리는 409', async () => {
+  const sub = await confirmUpload('GBSA2026001', null);
+  assert.equal(sub.status, 202);
+  const item = (await api('/api/admin/reviews')).body.reviews[0];
+  const img = await fetch(base + '/api/admin/reviews/' + item.id + '/file');
+  assert.equal(img.status, 200); assert.equal(img.headers.get('content-type'), 'image/png');
+  const ok = await post('/api/admin/reviews/' + item.id + '/approve', {});
+  assert.equal(ok.status, 200); assert.equal(ok.body.task.status, 'done');
+  assert.equal((await post('/api/admin/reviews/' + item.id + '/approve', {})).status, 409);
+  const mine = await myTask(item.empNo, item.taskId);
+  assert.equal(mine.status, 'done'); assert.equal(mine.review.state, 'approved');
+  assert.equal((await api('/api/admin/reviews')).body.reviews.some((x) => x.id === item.id), false);
+  assert.equal((await api('/api/admin/overview')).body.pendingReviews, 0);
+});
+
+test('관리자 재제출 요청: 사유가 직원에게 전달되고, 재업로드하면 다시 확인 대기', async () => {
+  assert.equal((await confirmUpload('GBSA2026001', null)).status, 202);
+  assert.equal((await api('/api/admin/overview')).body.pendingReviews, 1);
+  const item = (await api('/api/admin/reviews')).body.reviews[0];
+  const rej = await post('/api/admin/reviews/' + item.id + '/reject', { reason: '성명이 가려져 있습니다' });
+  assert.equal(rej.status, 200); assert.notEqual(rej.body.task.status, 'done');
+  const mine = await myTask(item.empNo, item.taskId);
+  assert.deepEqual([mine.review.state, mine.review.reason], ['rejected', '성명이 가려져 있습니다']);
+  assert.equal((await post('/api/admin/reviews/' + item.id + '/reject', {})).status, 409);
+  assert.equal((await api('/api/admin/reviews')).body.count, 0);
+  // 재제출 → 다시 대기, 이전 요청은 대기 목록에 남지 않는다
+  assert.equal((await confirmUpload('GBSA2026001', null)).status, 202);
+  assert.equal((await myTask(item.empNo, item.taskId)).review.state, 'pending');
+  assert.equal((await api('/api/admin/reviews')).body.count, 1);
+});
+
+test('재제출로 이전 대기 건은 대체(superseded)되어 목록에 1건만 남는다', async () => {
+  await confirmUpload('GBSA2026001', null);
+  await confirmUpload('GBSA2026001', null);
+  assert.equal((await api('/api/admin/reviews')).body.count, 1);
+});
+
+test('본인 확인 제출은 파일이 필수이고, 명백히 다른 이름은 확인해도 거부', async () => {
+  const fd = new FormData(); fd.append('empNo', 'GBSA2026001'); fd.append('courseName', '정보보안'); fd.append('ocrText', '정보보안'); fd.append('nameConfirmed', 'true');
+  const noFile = await api('/api/tasks/cert-upload', { method: 'POST', body: fd });
+  assert.equal(noFile.status, 400); assert.equal(noFile.body.code, 'FILE_REQUIRED');
+  const clear = await confirmUpload('GBSA2026001', '강하율');
   assert.equal(clear.status, 403); assert.equal(clear.body.code, 'NAME_MISMATCH'); assert.equal(clear.body.confirmable, false);
   const near = await api('/api/tasks/cert-upload', { method: 'POST', body: certForm({ empNo: 'GBSA2026001', courseName: '정보보안', ocrText: '정보보안' }, '수료증.png', '홍길둥') });
   assert.equal(near.status, 403); assert.equal(near.body.confirmable, true);
-  const ok = await api('/api/tasks/cert-upload', { method: 'POST', body: certForm({ empNo: 'GBSA2026001', courseName: '정보보안', ocrText: '정보보안', nameConfirmed: 'true' }, '수료증.png', '홍길둥') });
-  assert.equal(ok.status, 200);
+  assert.equal((await confirmUpload('GBSA2026001', '홍길둥')).status, 202);
 });

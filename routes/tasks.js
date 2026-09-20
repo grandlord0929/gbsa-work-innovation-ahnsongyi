@@ -1,13 +1,15 @@
 const express = require('express');
 const multer = require('multer');
 const {
-  resolveEmp, tasksByEmp, getTask, pendingEduTasks, recordSubmission, updateTask, deleteTask,
+  resolveEmp, tasksByEmp, getTask, pendingEduTasks, recordSubmission, recordReviewSubmission, updateTask, deleteTask,
 } = require('../lib/data');
 const { pickMatch } = require('../lib/certMatch');
 const CertExtract = require('../public/certExtract'); // 브라우저와 동일한 파서/성명 검증 로직
 const { createRequest, httpError } = require('../lib/assign');
 const { isValidDate } = require('../lib/time');
 const { wrap } = require('../lib/http');
+const { formatMethod, EXT_BY_MIME } = require('../lib/review');
+const { saveCertFile } = require('../lib/storage');
 
 const router = express.Router();
 
@@ -17,7 +19,8 @@ function fixName(name) {
   return [...name].every((c) => c.charCodeAt(0) <= 0xff) ? Buffer.from(name, 'latin1').toString('utf8') : name;
 }
 
-// 업로드 파일은 디스크/DB에 저장하지 않는다(서버리스는 디스크가 휘발성). 파일명만 제출 이력에 남긴다.
+// 업로드 파일은 디스크에 저장하지 않는다(서버리스는 디스크가 휘발성). 자동 제출은 파일명만 이력에 남기고,
+// 본인 확인 제출(관리자 확인 대상)만 관리자가 열람할 수 있도록 Supabase Storage 에 보관한다.
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
 
 const clean = (v, max = 300) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null);
@@ -88,7 +91,7 @@ router.post('/cert-upload', upload.single('file'), wrap(async (req, res) => {
   const nameCheck = CertExtract.verifyName(emp.name, { certName: serverName || claimedName || '', text: cert.ocr_text || '' });
   // 성명을 못 읽었거나(unverified) 한 글자 차이(OCR 오인식 가능)면 본인 확인(nameConfirmed)을 받아 통과시키고 제출 이력에 남긴다.
   // 수료증 성명이 명확히 다른 사람이면(두 글자 이상 차이) 확인해도 거부한다.
-  const nameConfirmed = String(body.nameConfirmed) === 'true' && nameCheck.confirmable === true;
+  const nameConfirmed = String(body.nameConfirmed) === 'true' && nameCheck.confirmable === true && nameCheck.status !== 'match';
   if (nameCheck.status !== 'match' && !nameConfirmed) {
     return res.status(403).json({
       error: CertExtract.nameMessage(nameCheck),
@@ -123,11 +126,25 @@ router.post('/cert-upload', upload.single('file'), wrap(async (req, res) => {
     ({ task, matchedBy, score } = m);
   }
 
-  const changed = await recordSubmission(task.id, file, cert, nameConfirmed ? `${matchedBy}+name-confirmed` : matchedBy);
+  // 본인 확인으로 통과한 제출은 바로 완료하지 않고 관리자 확인 대기로 둔다(수료증 이미지 필수).
+  if (nameConfirmed) {
+    if (!req.file) return res.status(400).json({ error: '본인 확인 제출에는 수료증 파일이 필요합니다.', code: 'FILE_REQUIRED' });
+    const ext = EXT_BY_MIME[req.file.mimetype];
+    if (!ext) return res.status(400).json({ error: '이미지(PNG/JPG/WEBP/GIF/BMP) 또는 PDF 수료증만 제출할 수 있습니다.', code: 'FILE_TYPE' });
+    const path = `${task.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    await saveCertFile(path, req.file.buffer, req.file.mimetype);
+    const subId = await recordReviewSubmission(task.id, { ...cert, file_name: fileName }, formatMethod({ base: matchedBy, nameConfirmed: true, review: 'pending', file: path }));
+    if (!subId) return res.status(409).json({ error: '이미 제출 처리된 업무입니다.' });
+    return res.status(202).json({
+      review: 'pending', submissionId: subId, matchedTask: await getTask(task.id), matchedBy, score, cert, fileName,
+      nameCheck: { isNameMatched: false, confirmedByUser: true, matchedName: nameCheck.matchedName, expectedName: emp.name },
+    });
+  }
+  const changed = await recordSubmission(task.id, file, cert, matchedBy);
   if (!changed) return res.status(409).json({ error: '이미 제출 처리된 업무입니다.' });
   res.json({
     matchedTask: await getTask(task.id), matchedBy, score, cert, fileName,
-    nameCheck: { isNameMatched: nameCheck.status === 'match', confirmedByUser: nameConfirmed, matchedName: nameCheck.matchedName, expectedName: emp.name },
+    nameCheck: { isNameMatched: true, confirmedByUser: false, matchedName: nameCheck.matchedName, expectedName: emp.name },
   });
 }));
 

@@ -80,7 +80,7 @@ test('수료증 조회: task_id=in.(...) + 최신순', async () => {
   const sub = sent.find((x) => x.u.pathname.endsWith('/submissions'));
   assert.ok(sub, 'submissions 조회가 발생해야 함');
   assert.equal(sub.u.searchParams.get('task_id'), 'in.(7)');
-  assert.equal(sub.u.searchParams.get('order'), 'submitted_at.desc');
+  assert.equal(sub.u.searchParams.get('order'), 'id.desc');
 });
 
 test('제출 처리: 이미 done 이 아닌 행만 PATCH + 반환 요청, 이어서 이력 POST', async () => {

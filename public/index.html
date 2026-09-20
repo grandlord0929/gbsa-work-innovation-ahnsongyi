@@ -87,6 +87,18 @@ h1{font-size:22px;margin:0 0 4px;letter-spacing:-.4px}h2{font-size:15px;margin:0
 .cand{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}.cand-note{margin-top:12px;font-size:12px;color:var(--amber)}
 .name-badge{margin-top:12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:10px 14px;border-radius:10px;font-weight:800;font-size:14px;border:1px solid}.name-badge small{font-weight:600;font-size:12px;opacity:.85}
 .name-badge.ok{background:var(--green50);color:#047857;border-color:#a7f3d0}.name-badge.bad{background:var(--red50);color:#b91c1c;border-color:#fecaca}.name-badge.warn{background:var(--amber50);color:var(--amber);border-color:#fde68a}
+.b-review{background:#eef2ff;color:#4338ca;box-shadow:inset 0 0 0 1px #c7d2fe}.b-resub{background:var(--red50);color:var(--red);box-shadow:inset 0 0 0 1px #fecaca}
+.review-box{margin-top:12px;padding:12px 14px;border-radius:10px;font-size:13px;line-height:1.6}
+.review-box.pending{background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3}.review-box.rejected{background:var(--red50);border:1px solid #fecaca;color:#991b1b}.review-box.done{background:var(--green50);border:1px solid #a7f3d0;color:#065f46}
+.review-box b{display:block;font-size:14px;margin-bottom:2px}.review-box .spin{display:inline-block;width:12px;height:12px;border:2px solid #a5b4fc;border-top-color:#4338ca;border-radius:50%;animation:rot 1s linear infinite;vertical-align:-1px;margin-right:6px}
+@keyframes rot{to{transform:rotate(360deg)}}
+.rv-list{display:grid;gap:14px;margin-top:12px}.rv-item{display:grid;grid-template-columns:200px 1fr;gap:16px;border:1px solid var(--line);border-radius:12px;padding:14px;background:#fff}
+.rv-thumb{width:200px;height:140px;border-radius:8px;border:1px solid var(--line);background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:zoom-in;color:var(--muted);font-size:12px}.rv-thumb img{width:100%;height:100%;object-fit:contain}
+.rv-info h3{margin:0 0 4px;font-size:14px}.rv-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 14px;margin:8px 0;font-size:12.5px}.rv-grid span{color:var(--muted)}.rv-grid b{word-break:break-word}
+.rv-flag{display:inline-block;margin-top:2px;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:800;background:var(--amber50);color:var(--amber)}
+.rv-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.btn.danger{background:#fff;color:var(--red);border-color:#fecaca}.btn.danger:hover{background:var(--red50)}
+.cnt-pill{display:inline-block;min-width:20px;padding:1px 7px;border-radius:999px;background:var(--red);color:#fff;font-size:11.5px;font-weight:800;margin-left:6px;text-align:center}
+@media(max-width:720px){.rv-item{grid-template-columns:1fr}.rv-thumb{width:100%}}
 .ocr-warn{margin-top:10px;padding:10px 14px;border-radius:10px;background:var(--red50);border:1px solid #fecaca;color:#991b1b;font-size:13px;font-weight:700;line-height:1.55}
 .demo-btn.alt{background:#fff;color:#b91c1c;border:1px solid #fecaca;box-shadow:none;margin-top:8px}.demo-btn.alt:hover:not(:disabled){background:var(--red50)}
 
@@ -179,6 +191,7 @@ footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
           <div class="fields" id="ocrFields"></div>
           <div id="ocrNameBadge" class="name-badge" role="status" hidden></div>
           <div id="ocrWarn" class="ocr-warn" role="alert" hidden></div>
+          <div id="ocrReview" hidden></div>
           <div id="ocrActions" class="cand"></div>
           <div id="ocrCand"></div>
         </div>
@@ -206,6 +219,11 @@ footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
     <div class="kpi green"><span>제출 완료율</span><strong id="kRate">-</strong><small id="kRateSub"></small></div>
     <div class="kpi amber"><span>미제출 사원</span><strong id="kPending">-</strong><small>미제출 업무가 1건 이상인 사원</small></div>
     <div class="kpi red"><span>기한 초과 미제출</span><strong id="kOverdue">-</strong><small>마감이 지난 미제출 (사원×업무)</small></div>
+  </div>
+
+  <div class="panel" id="reviewPanel">
+    <div class="ph"><h2>수료증 확인 요청 <span class="cnt-pill" id="reviewCnt">0</span></h2><span class="muted">직원이 성명을 자동 확인하지 못해 '본인 확인'으로 제출한 수료증입니다. 이미지를 확인한 뒤 승인하거나 재제출을 요청하세요.</span></div>
+    <div class="rv-list" id="reviewList"><div class="muted">확인 대기 중인 수료증이 없습니다.</div></div>
   </div>
 
   <div class="two">
@@ -321,6 +339,8 @@ function catLabel(cat){ return cat==='service'?'복무 누락 소명':cat==='edu
 // D-Day 상태 배지: 긴급(D-1 이내/D-DAY) · 주의(D-2~3) · 진행(D-4~) · 기한초과 · 제출완료
 function dinfo(t){
   if(t.status==='done') return {cls:'done',badge:'b-done',label:'✓ 제출완료'};
+  if(t.review?.state==='pending') return {cls:'normal',badge:'b-review',label:'🕒 관리자 확인 중'};   // 기한과 무관하게 '확인 중'을 먼저 보여준다
+  if(t.review?.state==='rejected') return {cls:'urgent',badge:'b-resub',label:'↩ 수료증 재제출 요청'};
   const n=Math.round((new Date(t.due+'T00:00:00')-today0())/864e5);
   if(n<0) return {cls:'over',badge:'b-over',label:`기한초과 D+${-n}`};
   if(n<=1) return {cls:'urgent',badge:'b-urgent',label:n===0?'긴급 D-DAY':'긴급 D-1'};
@@ -329,13 +349,13 @@ function dinfo(t){
 }
 const badge=t=>{ const i=dinfo(t); return `<span class="badge ${i.badge}">${i.label}</span>` };
 
-function certLine(c){
+function certLine(c,approved){
   if(!c) return '';
   const parts=[];
   if(c.course_name) parts.push(`교육명 <b>${esc(c.course_name)}</b>`);
   if(c.issuer) parts.push(`발급기관 <b>${esc(c.issuer)}</b>`);
   if(c.completed_date) parts.push(`이수일자 <b>${esc(c.completed_date)}</b>`);
-  return parts.length ? `<div class="cert-info">✓ 수료증 OCR 자동 제출 · ${parts.join(' · ')}</div>` : '';
+  return parts.length ? `<div class="cert-info">✓ ${approved?'관리자 확인 완료':'수료증 OCR 자동 제출'} · ${parts.join(' · ')}</div>` : '';
 }
 
 /* ---------- 모드 전환 ---------- */
@@ -407,12 +427,42 @@ function renderCards(){
       <div class="card-top"><span class="chip">${catLabel(t.cat)}</span><span class="badge ${i.badge}">${i.label}</span>${isNew?'<span class="badge b-new">NEW</span>':''}</div>
       <h3>${esc(t.title)}</h3>
       <div class="meta">요청부서 ${esc(t.dept)} · 마감 ${esc(fmtDue(t.due))}</div>
-      ${done?certLine(t.cert):''}
-      ${!done?`<div class="actions">${t.cat==='edu'
+      ${done?certLine(t.cert,t.review?.state==='approved'):''}
+      ${t.review?.state==='pending'?`<div class="review-box pending"><b><span class="spin"></span>관리자 확인 중</b>제출하신 수료증을 관리자가 확인하고 있습니다. 확인이 끝나면 '제출 완료'로 바뀝니다. (제출 ${esc(shortTime(t.review.at))})</div>`:''}
+      ${t.review?.state==='rejected'?`<div class="review-box rejected"><b>↩ 수료증 재제출 요청</b>관리자가 수료증 재제출을 요청했습니다.${t.review.reason?` <br>사유: ${esc(t.review.reason)}`:''}<br>성명이 선명하게 보이는 수료증을 다시 올려 주세요.</div>`:''}
+      ${!done&&t.review?.state!=='pending'?`<div class="actions">${t.cat==='edu'
         ? `<button class="btn primary goCert" title="교육 수료증은 본인 성명 검증을 거쳐 업로드로만 제출할 수 있습니다">📎 수료증 업로드로 제출</button>`
         : `<button class="btn primary submit" data-id="${t.id}">제출완료</button>`}</div>`:''}
     </article>`;
   }).join('');
+}
+// 관리자 확인 결과 알림: 확인 중 → 제출 완료 / 재제출 요청 으로 바뀌면 직원에게 알려준다(10초 폴링으로 감지)
+function announceReviewChanges(prev){
+  for(const t of tasks){
+    const was=prev.get(t.id), now=t.review?.state||'';
+    if(was!=='pending') continue;
+    if(t.status==='done'){
+      toast(`관리자가 수료증을 확인했습니다. 「${t.title}」 제출 완료`,'ok');
+      addMsg(`✅ <b>제출 완료</b> — 관리자가 수료증을 확인했습니다.<br><span class="muted">${esc(t.title)}</span>`);
+      showReviewResult('done',t);
+    }else if(now==='rejected'){
+      toast('수료증 재제출 요청이 도착했습니다.','err');
+      addMsg(`↩ <b>수료증 재제출 요청</b><br>${esc(t.title)}${t.review.reason?`<br><span class="muted">사유: ${esc(t.review.reason)}</span>`:''}<br>성명이 선명하게 보이는 수료증을 다시 올려 주세요.`);
+      showReviewResult('rejected',t);
+    }
+  }
+}
+// 업로드 화면(OCR 진행 패널)의 상태 박스: 관리자 확인 중 / 제출 완료 / 재제출 요청
+function showReviewResult(kind,t){
+  const box=$('#ocrReview'); if(!box||$('#ocrFlow').hidden) return;
+  if(kind==='pending'){
+    box.hidden=false; box.dataset.task=t.id;
+    box.innerHTML=`<div class="review-box pending"><b><span class="spin"></span>관리자 확인 중</b>수료증을 관리자에게 전달했습니다. 관리자가 이미지를 확인하면 '제출 완료'로 바뀌고, 문제가 있으면 '수료증 재제출 요청'이 표시됩니다.<br><span class="muted">이 화면을 열어 두면 결과가 자동으로 갱신됩니다.</span></div>`;
+    return;
+  }
+  if(box.dataset.task!==String(t.id)) return;   // 다른 업무의 결과는 업로드 패널에 표시하지 않음
+  if(kind==='done') box.innerHTML=`<div class="review-box done"><b>✓ 제출 완료</b>관리자가 수료증을 확인했습니다. 「${esc(t.title)}」 제출이 완료되었습니다.</div>`;
+  else box.innerHTML=`<div class="review-box rejected"><b>↩ 수료증 재제출 요청</b>관리자가 수료증 재제출을 요청했습니다.${t.review.reason?` <br>사유: ${esc(t.review.reason)}`:''}<br>성명이 선명하게 보이는 수료증을 다시 올려 주세요.</div>`;
 }
 async function loadTasks({quiet}={}){
   if(!me) return;
@@ -421,7 +471,9 @@ async function loadTasks({quiet}={}){
     if(!seen) seen=getSeen();
     if(!seen){ seen=new Set(list.map(t=>t.id)); LS.set(seenKey(),JSON.stringify([...seen])); }   // 첫 접속: 기존 업무는 NEW 아님
     const fresh=list.filter(t=>!seen.has(t.id) && !announced.has(t.id));
+    const prevReview=new Map(tasks.map(t=>[t.id,t.review?.state||'']));
     tasks=list; renderCards();
+    announceReviewChanges(prevReview);
     if(fresh.length){
       fresh.forEach(t=>announced.add(t.id));
       toast(`새 제출요청 ${fresh.length}건이 도착했습니다.`,'ok');
@@ -525,8 +577,8 @@ async function loadAdmin({quiet}={}){
   const qs=new URLSearchParams({page:A.page,pageSize:A.pageSize,status:A.status});
   if(A.dept) qs.set('dept',A.dept); if(A.q) qs.set('q',A.q); if(A.requestId) qs.set('requestId',A.requestId);
   try{
-    const [ov,list]=await Promise.all([api('/api/admin/overview'),api('/api/admin/employees?'+qs)]);
-    window.__reqs=ov.requests; renderOverview(ov); renderEmployees(list);
+    const [ov,list,rv]=await Promise.all([api('/api/admin/overview'),api('/api/admin/employees?'+qs),api('/api/admin/reviews')]);
+    window.__reqs=ov.requests; renderOverview(ov); renderEmployees(list); renderReviews(rv);
     $('#adminError').hidden=true; $('#adminLive').className='live';
     $('#adminLive').innerHTML=`<i></i><span>사원 DB ${ov.totalEmployees}명 · 실시간 집계 (${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})})</span>`;
   }catch(e){
@@ -535,6 +587,55 @@ async function loadAdmin({quiet}={}){
   }
 }
 $('#adminRefresh').onclick=()=>loadAdmin();
+
+/* ---------- 수료증 관리자 확인 (직원이 '본인 확인'으로 제출한 건) ---------- */
+let reviewSig='';
+function renderReviews(rv){
+  $('#reviewCnt').textContent=rv.count; $('#reviewCnt').hidden=rv.count===0;
+  const sig=JSON.stringify(rv.reviews.map(r=>r.id)); if(sig===reviewSig) return; reviewSig=sig;   // 목록이 같으면 다시 그리지 않음(이미지 깜박임 방지)
+  $('#reviewList').innerHTML=rv.reviews.map(r=>{
+    const nameFlag=!r.certName?'<span class="rv-flag">성명 자동 인식 실패</span>':r.certName!==r.empName?`<span class="rv-flag">성명 다름: '${esc(r.certName)}'</span>`:'';
+    return `<div class="rv-item" data-rv="${r.id}">
+      <div class="rv-thumb" data-zoom="${r.id}" title="클릭하면 크게 봅니다">${r.hasFile?`<img src="/api/admin/reviews/${r.id}/file" alt="수료증 이미지" loading="lazy" onerror="this.replaceWith(document.createTextNode('미리보기 불가(PDF는 크게 보기)'))">`:'이미지 없음'}</div>
+      <div class="rv-info">
+        <h3>${esc(r.empName)} <span class="muted">${esc(r.empDept)} · ${esc(r.empNo)}</span></h3>
+        <div class="muted">${esc(r.title)} · 제출 ${esc(shortTime(r.submittedAt))}</div>
+        <div class="rv-grid">
+          <div><span>교육명(인식)</span><br><b>${esc(r.courseName||'-')}</b></div>
+          <div><span>발급기관(인식)</span><br><b>${esc(r.issuer||'-')}</b></div>
+          <div><span>이수일자(인식)</span><br><b>${esc(r.completedDate||'-')}</b></div>
+          <div><span>수료증 성명(인식)</span><br><b>${esc(r.certName||'미검출')}</b> ${nameFlag}</div>
+        </div>
+        <div class="rv-actions">
+          <button class="btn primary sm" data-approve="${r.id}">✓ 확인 (제출 완료 처리)</button>
+          <button class="btn danger sm" data-reject="${r.id}">↩ 재제출 요청</button>
+          ${r.hasFile?`<a class="btn sm" href="/api/admin/reviews/${r.id}/file" target="_blank" rel="noopener">원본 열기</a>`:''}
+        </div>
+      </div></div>`;
+  }).join('') || '<div class="muted">확인 대기 중인 수료증이 없습니다.</div>';
+}
+$('#reviewList').onclick=async e=>{
+  const z=e.target.closest('[data-zoom]'), ap=e.target.closest('[data-approve]'), rj=e.target.closest('[data-reject]');
+  if(z){ openModal('수료증 이미지',`<img src="/api/admin/reviews/${z.dataset.zoom}/file" alt="수료증" style="max-width:100%;border:1px solid var(--line);border-radius:8px" onerror="this.replaceWith(document.createTextNode('이미지를 표시할 수 없습니다. 상단의 [원본 열기]를 사용하세요.'))">`); return; }
+  if(ap){
+    ap.disabled=true;
+    try{ const r=await api(`/api/admin/reviews/${ap.dataset.approve}/approve`,{method:'POST'}); toast(`확인 완료 — 「${r.task.title}」 제출 완료 처리`,'ok'); reviewSig=''; await loadAdmin(); }
+    catch(err){ ap.disabled=false; toast('확인 처리 실패: '+err.message,'err'); reviewSig=''; loadAdmin({quiet:true}); }
+    return;
+  }
+  if(rj){
+    const id=rj.dataset.reject;
+    openModal('수료증 재제출 요청',`<div class="muted" style="margin-bottom:8px">직원 화면에 '수료증 재제출 요청'이 표시됩니다. 사유를 함께 전달할 수 있습니다.</div>
+      <label class="f">사유 (선택)<input id="rjReason" class="in" maxlength="200" placeholder="예: 성명이 가려져 있습니다 / 이미지가 흐립니다"></label>
+      <div class="actions-row" style="margin-top:14px"><button class="btn danger" id="rjSend">재제출 요청 보내기</button><button class="btn" id="rjCancel">취소</button></div>`);
+    $('#rjReason').focus(); $('#rjCancel').onclick=closeModal;
+    $('#rjSend').onclick=async()=>{
+      $('#rjSend').disabled=true;
+      try{ await api(`/api/admin/reviews/${id}/reject`,{method:'POST',body:JSON.stringify({reason:$('#rjReason').value.trim()})}); closeModal(); toast('재제출을 요청했습니다.','ok'); reviewSig=''; await loadAdmin(); }
+      catch(err){ $('#rjSend').disabled=false; toast('요청 실패: '+err.message,'err'); }
+    };
+  }
+};
 $('#deptList').onclick=e=>{ const b=e.target.closest('.dept-row'); if(!b) return; A.dept=A.dept===b.dataset.dept?'':b.dataset.dept; A.page=1; $('#fDept').value=A.dept; loadAdmin(); $('#empPanel').scrollIntoView({behavior:'smooth',block:'start'}); };
 $('#fDept').onchange=e=>{ A.dept=e.target.value; A.page=1; loadAdmin() };
 $('#fStatus').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; A.status=b.dataset.st; A.page=1; loadAdmin() };
@@ -551,7 +652,7 @@ $('#empRows').onclick=async e=>{
     openModal(`${cells[1].textContent.replace('로그인 중','').trim()} · ${cells[2].textContent} (${b.dataset.emp})`,
       `<div class="muted" style="margin-bottom:12px">제출 ${list.filter(t=>t.status==='done').length} / 요청 ${list.length}건</div>`+
       (list.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>업무명</th><th>마감일</th><th>상태</th></tr></thead><tbody>${list.map(t=>
-        `<tr><td style="white-space:normal;min-width:220px">${esc(t.title)}<div class="muted">${catLabel(t.cat)}</div>${t.status==='done'?certLine(t.cert):''}</td><td>${esc(t.due)}</td><td>${badge(t)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">할당된 업무가 없습니다.</div>'));
+        `<tr><td style="white-space:normal;min-width:220px">${esc(t.title)}<div class="muted">${catLabel(t.cat)}</div>${t.status==='done'?certLine(t.cert,t.review?.state==='approved'):''}</td><td>${esc(t.due)}</td><td>${badge(t)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">할당된 업무가 없습니다.</div>'));
   }catch(err){ toast('상세 조회 실패: '+err.message,'err'); }
 };
 
@@ -789,7 +890,7 @@ const STEPS=['파일 읽기','OCR 텍스트 인식 (전처리 + Tesseract.js)','
 function initFlow(thumbHtml){
   $('#ocrFlow').hidden=false; $('#ocrThumb').innerHTML=thumbHtml||'<span class="muted">미리보기</span>'; $('#ocrBar').style.width='0';
   $('#ocrCand').innerHTML=''; $('#ocrActions').innerHTML=''; $('#certResult').textContent='';
-  $('#ocrNameBadge').hidden=true; $('#ocrWarn').hidden=true;
+  $('#ocrNameBadge').hidden=true; $('#ocrWarn').hidden=true; $('#ocrReview').hidden=true; $('#ocrReview').innerHTML='';
   $('#ocrSteps').innerHTML=STEPS.map((s,i)=>`<li data-s="${i}"><span class="dot"></span><span>${s}<small></small></span></li>`).join('');
   renderFields(null);
 }
@@ -853,6 +954,20 @@ async function submitCert({blob,fileName,fields,ocrText,taskId,nameConfirmed}){
   if(nameConfirmed) fd.append('nameConfirmed','true');
   return api('/api/tasks/cert-upload',{method:'POST',body:fd});
 }
+// 본인 확인 제출(202): 바로 완료하지 않고 '관리자 확인 중' 화면을 먼저 보여준다
+async function finishPending(r,fields){
+  const t=r.matchedTask;
+  setStep(3,'done','본인 확인 (사용자 확인, 이력 기록)');
+  setStep(4,'active',`「${t.title}」 → 관리자 확인 중`);
+  setBar(1); $('#ocrWarn').hidden=true; $('#ocrActions').innerHTML='';
+  showReviewResult('pending',t);
+  $('#certResult').textContent='🕒 관리자 확인 중 — 확인이 끝나면 제출 완료로 바뀝니다.';
+  await loadTasks();
+  const el=$(`[data-card="${t.id}"]`); if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.add('flash'); }
+  addMsg(`🕒 <b>관리자 확인 중</b> — 「${esc(t.title)}」 수료증을 관리자에게 전달했습니다.<br><span class="muted">성명을 자동으로 확인하지 못해 관리자가 이미지를 직접 확인합니다. 확인이 끝나면 알려드립니다.</span>`);
+  toast('관리자 확인을 요청했습니다.','ok');
+}
+const handleSubmitResult=(r,fields)=>r.review==='pending'?finishPending(r,fields):finishSuccess(r,fields);
 async function finishSuccess(r,fields){
   setStep(4,'done',`「${r.matchedTask.title}」 → 제출완료 (${r.matchedBy==='keyword'?'키워드 자동 매칭':r.matchedBy==='manual-select'?'직접 선택':'유일한 대기 업무'})`);
   setBar(1); await loadTasks();
@@ -863,7 +978,7 @@ async function finishSuccess(r,fields){
 }
 async function submitStep(ctx){
   setStep(4,'active','서버에 매칭 요청 중...');
-  try{ await finishSuccess(await submitCert(ctx),ctx.fields); }
+  try{ await handleSubmitResult(await submitCert(ctx),ctx.fields); }
   catch(e){
     const code=e.data?.code||'';
     if(e.status===403&&(code==='NAME_MISMATCH'||code==='NAME_UNVERIFIED')){ // 서버가 성명 검증에서 거부
@@ -875,7 +990,7 @@ async function submitStep(ctx){
       $('#ocrCand').innerHTML=`<div class="cand-note">${esc(e.data.error)}</div><div class="cand">`+e.data.candidates.map(c=>`<button class="btn sm pick" data-id="${c.id}">${esc(c.title)}</button>`).join('')+`</div>`;
       $$('#ocrCand .pick').forEach(b=>b.onclick=async()=>{
         $('#ocrCand').innerHTML=''; setStep(4,'active','선택한 업무로 제출 중...');
-        try{ await finishSuccess(await submitCert({...ctx,taskId:b.dataset.id}),ctx.fields); }
+        try{ await handleSubmitResult(await submitCert({...ctx,taskId:b.dataset.id}),ctx.fields); }
         catch(err){ setStep(4,'err',err.message); $('#certResult').textContent='✗ '+err.message; }
       });
     }else{
