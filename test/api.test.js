@@ -425,3 +425,25 @@ test('본인 확인 제출은 파일이 필수이고, 명백히 다른 이름은
   assert.equal(near.status, 403); assert.equal(near.body.confirmable, true);
   assert.equal((await confirmUpload('GBSA2026001', '홍길둥')).status, 202);
 });
+
+test('1MB 초과 수료증 파일은 413 "파일 용량 초과"로 거부되고 DB는 그대로', async () => {
+  const fd = new FormData(); fd.append('empNo', 'GBSA2026001'); fd.append('courseName', '정보보안'); fd.append('ocrText', '정보보안\n성명 : 홍길동');
+  fd.append('file', new Blob([new Uint8Array(1024 * 1024 + 1)], { type: 'image/png' }), 'big.png');
+  const r = await api('/api/tasks/cert-upload', { method: 'POST', body: fd });
+  assert.equal(r.status, 413); assert.equal(r.body.code, 'FILE_TOO_LARGE'); assert.match(r.body.error, /파일 용량 초과/);
+  assert.equal(fake._tables.submissions.length, 0);
+  const fd2 = new FormData(); fd2.append('empNo', 'GBSA2026001'); fd2.append('courseName', '정보보안'); fd2.append('ocrText', '정보보안\n성명 : 홍길동');
+  fd2.append('file', new Blob([new Uint8Array(1024 * 1024)], { type: 'image/png' }), 'ok.png'); // 정확히 1MB 는 허용
+  assert.equal((await api('/api/tasks/cert-upload', { method: 'POST', body: fd2 })).status, 200);
+});
+
+test('관리자 대시보드: 재제출 요청 중 건수는 직원이 다시 올리면 빠진다', async () => {
+  await confirmUpload('GBSA2026001', null);
+  const item = (await api('/api/admin/reviews')).body.reviews[0];
+  assert.equal((await api('/api/admin/overview')).body.resubmitRequested, 0);
+  await post('/api/admin/reviews/' + item.id + '/reject', { reason: 'x' });
+  assert.equal((await api('/api/admin/overview')).body.resubmitRequested, 1);
+  assert.equal((await api('/api/admin/reviews')).body.resubmitRequested, 1);
+  await confirmUpload('GBSA2026001', null);
+  assert.equal((await api('/api/admin/overview')).body.resubmitRequested, 0);
+});

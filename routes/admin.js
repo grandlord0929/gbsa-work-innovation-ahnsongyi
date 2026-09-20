@@ -1,7 +1,7 @@
 // 관리자 화면용 집계 API. 사원/부서 목록은 employees 테이블, 제출 현황은 tasks(사원별 행)에서 실시간 집계한다.
 // PostgREST 는 GROUP BY 를 지원하지 않으므로 필요한 최소 컬럼만 읽어 서버에서 집계한다.
 const express = require('express');
-const { listEmployees, listDepartments, allTaskFacts, recentRequests, listPendingReviews, pendingReviewCount, getSubmission, decideReview } = require('../lib/data');
+const { listEmployees, listDepartments, allTaskFacts, recentRequests, listPendingReviews, pendingReviewCount, resubmitRequestCount, getSubmission, decideReview } = require('../lib/data');
 const CertExtract = require('../public/certExtract');
 const { parseMethod, MIME_BY_EXT } = require('../lib/review');
 const { readCertFile } = require('../lib/storage');
@@ -14,7 +14,7 @@ const router = express.Router();
 const pct = (done, total) => (total ? Math.round((done / total) * 100) : 0);
 
 async function overview() {
-  const [depts, facts, requestRows, reviewsPending] = await Promise.all([listDepartments(), allTaskFacts(), recentRequests(30), pendingReviewCount()]);
+  const [depts, facts, requestRows, reviewsPending, resubmitting] = await Promise.all([listDepartments(), allTaskFacts(), recentRequests(30), pendingReviewCount(), resubmitRequestCount()]);
   const today = todayStr();
   const isDone = (t) => t.status === 'done';
   const isOverdue = (t) => !isDone(t) && String(t.due).slice(0, 10) < today;
@@ -64,6 +64,7 @@ async function overview() {
     submitRate: pct(doneTasks, totalTasks),
     notSubmitted: byDept.reduce((n, d) => n + d.pendingEmployees, 0), // 미제출 업무가 1건이라도 있는 사원 수
     overdueTasks: byDept.reduce((n, d) => n + d.overdue, 0),          // 기한이 지났는데 미제출인 (사원×업무) 건수
+    resubmitRequested: resubmitting,                                   // 재제출을 요청했고 직원이 아직 다시 올리지 않은 건수
     pendingReviews: reviewsPending,                                    // 관리자 확인을 기다리는 수료증 건수
     byDept,
     requests,
@@ -138,7 +139,7 @@ router.get('/reviews', wrap(async (req, res) => {
     fileName: sub.file_name, hasFile: !!parseMethod(sub.match_method).file,
     submittedAt: fmtKst(sub.submitted_at),
   }));
-  res.json({ count: reviews.length, reviews });
+  res.json({ count: reviews.length, reviews, resubmitRequested: await resubmitRequestCount() });
 }));
 
 // GET /api/admin/reviews/:id/file — 직원이 올린 수료증 원본(비공개 Storage 를 서버가 대신 읽어 전달)

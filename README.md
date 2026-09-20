@@ -107,6 +107,9 @@ npm test
 - 관리자 확인용 수료증 원본은 Supabase **Storage 비공개 버킷 `cert-uploads`** 에 저장합니다(최초 요청 시 자동 생성, service_role 키 필요). 관리자만 `GET /api/admin/reviews/:id/file` 로 열람합니다. 자동 매칭으로 제출된 수료증은 종전처럼 파일을 저장하지 않습니다.
 - 확인 상태는 스키마 변경 없이 `submissions.match_method` 의 태그(`review=pending|approved|rejected|superseded`, `name-confirmed`, `file=…`, `reason=…`)로 기록합니다(`lib/review.js`). 별도 SQL 실행이 필요 없습니다.
 - 직원 화면은 10초마다 동기화하며, 확인 중 → 제출 완료 / 재제출 요청으로 바뀌면 토스트와 챗봇 메시지로 알려 줍니다.
+- **파일 용량 제한 1MB**: 수료증 파일이 1MB를 넘으면 프론트가 OCR 전에 "파일 용량 초과" 메시지를 띄우고, 서버도 `413 FILE_TOO_LARGE` 로 거부합니다(`MAX_CERT_BYTES`, routes/tasks.js).
+- **재제출 요청 표시**: 직원 대시보드 상단에 `↩ 재제출 요청 받음 N건` 배너(사유 포함, [지금 다시 제출])와 KPI 타일이 표시되고, 관리자 화면에는 `재제출 요청 중 N건 (직원 재업로드 대기)` 가 표시됩니다(`/api/admin/overview` 의 `resubmitRequested`).
+- 관리자 API 접근 제어(관리자 권한 구분)는 아직 구현하지 않았습니다. 지금은
 - 이 앱에는 관리자 권한 구분이 없어 `/api/admin/*` 는 접근 암호(BASIC_AUTH)로만 보호됩니다.
 
 배포 방법은 [DEPLOY.md](DEPLOY.md), 시연 모드(수료증 OCR)는 화면의 「▶ 시연용 샘플 수료증 자동 입력」 버튼을 참고하세요.

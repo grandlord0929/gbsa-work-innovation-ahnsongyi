@@ -79,6 +79,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not Found' }));
 
 app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
+  if (err && err.code === 'LIMIT_FILE_SIZE') { // multer: 업로드 파일 용량 초과
+    return res.status(413).json({ error: '파일 용량 초과: 수료증 파일은 1MB 이하만 제출할 수 있습니다.', code: 'FILE_TOO_LARGE' });
+  }
   console.error(err);
   res.status(500).json({ error: err.message || 'Internal Server Error' });
 });

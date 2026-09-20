@@ -21,7 +21,9 @@ function fixName(name) {
 
 // 업로드 파일은 디스크에 저장하지 않는다(서버리스는 디스크가 휘발성). 자동 제출은 파일명만 이력에 남기고,
 // 본인 확인 제출(관리자 확인 대상)만 관리자가 열람할 수 있도록 Supabase Storage 에 보관한다.
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
+// 수료증 파일은 1MB 이하만 받는다(서버리스 요청 크기 제한 대비). 프론트도 같은 기준으로 먼저 안내한다.
+const MAX_CERT_BYTES = 1024 * 1024;
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_CERT_BYTES } });
 
 const clean = (v, max = 300) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null);
 

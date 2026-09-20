@@ -88,6 +88,7 @@ h1{font-size:22px;margin:0 0 4px;letter-spacing:-.4px}h2{font-size:15px;margin:0
 .name-badge{margin-top:12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:10px 14px;border-radius:10px;font-weight:800;font-size:14px;border:1px solid}.name-badge small{font-weight:600;font-size:12px;opacity:.85}
 .name-badge.ok{background:var(--green50);color:#047857;border-color:#a7f3d0}.name-badge.bad{background:var(--red50);color:#b91c1c;border-color:#fecaca}.name-badge.warn{background:var(--amber50);color:var(--amber);border-color:#fde68a}
 .b-review{background:#eef2ff;color:#4338ca;box-shadow:inset 0 0 0 1px #c7d2fe}.b-resub{background:var(--red50);color:var(--red);box-shadow:inset 0 0 0 1px #fecaca}
+.resub-banner{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:0 0 14px;padding:12px 16px;border-radius:12px;background:var(--red50);border:1px solid #fecaca;color:#991b1b;font-size:13px}.resub-banner b{font-size:14.5px}.resub-banner span{flex:1;min-width:200px}
 .review-box{margin-top:12px;padding:12px 14px;border-radius:10px;font-size:13px;line-height:1.6}
 .review-box.pending{background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3}.review-box.rejected{background:var(--red50);border:1px solid #fecaca;color:#991b1b}.review-box.done{background:var(--green50);border:1px solid #a7f3d0;color:#065f46}
 .review-box b{display:block;font-size:14px;margin-bottom:2px}.review-box .spin{display:inline-block;width:12px;height:12px;border:2px solid #a5b4fc;border-top-color:#4338ca;border-radius:50%;animation:rot 1s linear infinite;vertical-align:-1px;margin-right:6px}
@@ -166,6 +167,7 @@ footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
     <div class="actions-row"><button class="btn resetDemoBtn" title="시연 데이터를 처음 상태로 되돌립니다">↺ 시연 데이터 초기화</button></div>
   </div>
   <div id="empError" class="banner" hidden></div>
+  <div id="resubBanner"></div>
   <div class="kpis" id="myKpi"></div>
   <div class="grid">
     <section>
@@ -222,7 +224,7 @@ footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
   </div>
 
   <div class="panel" id="reviewPanel">
-    <div class="ph"><h2>수료증 확인 요청 <span class="cnt-pill" id="reviewCnt">0</span></h2><span class="muted">직원이 성명을 자동 확인하지 못해 '본인 확인'으로 제출한 수료증입니다. 이미지를 확인한 뒤 승인하거나 재제출을 요청하세요.</span></div>
+    <div class="ph"><h2>수료증 확인 요청 <span class="cnt-pill" id="reviewCnt">0</span></h2><span class="muted" id="resubNote"></span><span class="muted">직원이 성명을 자동 확인하지 못해 '본인 확인'으로 제출한 수료증입니다. 이미지를 확인한 뒤 승인하거나 재제출을 요청하세요.</span></div>
     <div class="rv-list" id="reviewList"><div class="muted">확인 대기 중인 수료증이 없습니다.</div></div>
   </div>
 
@@ -407,12 +409,17 @@ let seen=null; const announced=new Set();
 
 function renderKpi(){
   const pend=tasks.filter(t=>t.status!=='done');
-  const c=k=>pend.filter(t=>dinfo(t).cls===k).length;
+  const c=k=>pend.filter(t=>dinfo({...t,review:null}).cls===k).length;   // 마감일 기준(관리자 확인 표시와 무관)
+  const resub=pend.filter(t=>t.review?.state==='rejected'), waiting=pend.filter(t=>t.review?.state==='pending');
+  $('#resubBanner').innerHTML=resub.length?`<div class="resub-banner" role="alert"><b>↩ 재제출 요청 받음 ${resub.length}건</b><span>${resub.map(t=>esc(t.title)+(t.review.reason?` (사유: ${esc(t.review.reason)})`:'')).join(' · ')} — 수료증을 다시 올려 주세요.</span><button class="btn sm danger" id="resubGo">지금 다시 제출</button></div>`:'';
+  const go=$('#resubGo'); if(go) go.onclick=()=>{ const el=$(`[data-card="${resub[0].id}"]`); if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.add('flash'); } };
   $('#myKpi').innerHTML=[
     ['','미제출 업무',pend.length,`전체 ${tasks.length}건 중`],
     ['amber','긴급 · 주의',c('urgent')+c('warn'),'마감 3일 이내'],
     ['red','기한 초과',c('over'),'즉시 제출 필요'],
     ['green','제출 완료',tasks.length-pend.length,'제출완료 처리됨'],
+    ...(resub.length?[['red','재제출 요청 받음',resub.length,'수료증 다시 제출 필요']]:[]),
+    ...(waiting.length?[['','관리자 확인 중',waiting.length,'확인 후 제출 완료']]:[]),
   ].map(([k,l,v,s])=>`<div class="kpi ${k}"><span>${l}</span><strong>${v}<small style="font-size:14px;font-weight:600"> 건</small></strong><small>${s}</small></div>`).join('');
 }
 function renderCards(){
@@ -592,6 +599,7 @@ $('#adminRefresh').onclick=()=>loadAdmin();
 let reviewSig='';
 function renderReviews(rv){
   $('#reviewCnt').textContent=rv.count; $('#reviewCnt').hidden=rv.count===0;
+  $('#resubNote').innerHTML=rv.resubmitRequested?`<span class="rv-flag">↩ 재제출 요청 중 ${rv.resubmitRequested}건 (직원 재업로드 대기)</span> `:'';
   const sig=JSON.stringify(rv.reviews.map(r=>r.id)); if(sig===reviewSig) return; reviewSig=sig;   // 목록이 같으면 다시 그리지 않음(이미지 깜박임 방지)
   $('#reviewList').innerHTML=rv.reviews.map(r=>{
     const nameFlag=!r.certName?'<span class="rv-flag">성명 자동 인식 실패</span>':r.certName!==r.empName?`<span class="rv-flag">성명 다름: '${esc(r.certName)}'</span>`:'';
@@ -1010,8 +1018,18 @@ async function verifyAndSubmit(ctx){
   if(ctx.demo) await sleep(400);
   await submitStep(ctx);
 }
+const MAX_CERT_BYTES=1024*1024;   // 서버(routes/tasks.js)와 같은 기준
+function rejectOversize(file){
+  const mb=(file.size/1024/1024).toFixed(2);
+  initFlow(''); setStep(0,'err',`파일 용량 초과 — ${mb}MB (최대 1MB)`);
+  const msg=`파일 용량 초과: 수료증 파일은 1MB 이하만 제출할 수 있습니다. (현재 ${mb}MB) 사진은 해상도를 낮추거나 압축한 뒤 다시 올려 주세요.`;
+  const warn=$('#ocrWarn'); warn.hidden=false; warn.textContent='⚠️ '+msg;
+  $('#certResult').textContent='✗ '+msg; addMsg('⚠ <b>파일 용량 초과</b> — '+esc(msg)); toast('파일 용량 초과 (최대 1MB)','err');
+}
 async function runCertPipeline(file){
-  if(pipelineBusy||!me) return; setBusy(true);
+  if(pipelineBusy||!me) return;
+  if(file.size>MAX_CERT_BYTES){ rejectOversize(file); return; }   // 1MB 초과는 OCR 전에 바로 안내
+  setBusy(true);
   const isPdf=file.type==='application/pdf'||/\.pdf$/i.test(file.name);
   initFlow(isPdf?'<span class="muted">PDF</span>':`<img src="${URL.createObjectURL(file)}" alt="">`);
   addMsg(`📄 <b>${esc(file.name)}</b> 수료증을 분석합니다.`);
