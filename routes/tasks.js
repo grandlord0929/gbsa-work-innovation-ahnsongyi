@@ -86,7 +86,10 @@ router.post('/cert-upload', upload.single('file'), wrap(async (req, res) => {
     return res.status(400).json({ error: '수료증 성명 값이 OCR 원문과 일치하지 않습니다.', code: 'NAME_TAMPERED', isNameMatched: false });
   }
   const nameCheck = CertExtract.verifyName(emp.name, { certName: serverName || claimedName || '', text: cert.ocr_text || '' });
-  if (nameCheck.status !== 'match') {
+  // 성명을 못 읽었거나(unverified) 한 글자 차이(OCR 오인식 가능)면 본인 확인(nameConfirmed)을 받아 통과시키고 제출 이력에 남긴다.
+  // 수료증 성명이 명확히 다른 사람이면(두 글자 이상 차이) 확인해도 거부한다.
+  const nameConfirmed = String(body.nameConfirmed) === 'true' && nameCheck.confirmable === true;
+  if (nameCheck.status !== 'match' && !nameConfirmed) {
     return res.status(403).json({
       error: CertExtract.nameMessage(nameCheck),
       code: nameCheck.status === 'mismatch' ? 'NAME_MISMATCH' : 'NAME_UNVERIFIED',
@@ -94,6 +97,7 @@ router.post('/cert-upload', upload.single('file'), wrap(async (req, res) => {
       matchedName: nameCheck.matchedName,
       expectedName: emp.name,
       similar: nameCheck.similar,
+      confirmable: nameCheck.confirmable === true,
     });
   }
 
@@ -119,11 +123,11 @@ router.post('/cert-upload', upload.single('file'), wrap(async (req, res) => {
     ({ task, matchedBy, score } = m);
   }
 
-  const changed = await recordSubmission(task.id, file, cert, matchedBy);
+  const changed = await recordSubmission(task.id, file, cert, nameConfirmed ? `${matchedBy}+name-confirmed` : matchedBy);
   if (!changed) return res.status(409).json({ error: '이미 제출 처리된 업무입니다.' });
   res.json({
     matchedTask: await getTask(task.id), matchedBy, score, cert, fileName,
-    nameCheck: { isNameMatched: true, matchedName: nameCheck.matchedName, expectedName: emp.name },
+    nameCheck: { isNameMatched: nameCheck.status === 'match', confirmedByUser: nameConfirmed, matchedName: nameCheck.matchedName, expectedName: emp.name },
   });
 }));
 

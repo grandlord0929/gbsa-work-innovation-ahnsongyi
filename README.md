@@ -82,7 +82,7 @@ npm test
 | 응답 | 의미 |
 |---|---|
 | `403 NAME_MISMATCH` | 수료증 성명 ≠ 제출자 성명 → 반려 (`isNameMatched:false`, `matchedName`=수료증 성명, `expectedName`) |
-| `403 NAME_UNVERIFIED` | 수료증에서 성명을 읽지 못함 → 본인 확인 불가로 반려 |
+| `403 NAME_UNVERIFIED` | 수료증에서 성명을 읽지 못함 → `nameConfirmed=true` 로 본인 확인 후 재요청하면 제출(이력에 `+name-confirmed` 기록) |
 | `400 NAME_TAMPERED` | 프론트가 보낸 `certName` 이 OCR 원문(`ocrText`)에서 서버가 추출한 성명과 다름 |
 | `403 CERT_REQUIRED` | 교육 수료증(edu) 업무를 `/submit` 수동 제출로 처리하려는 시도 (수료증 업로드로만 제출 가능, 시연용 예외: `ALLOW_MANUAL_EDU_SUBMIT=true`) |
 

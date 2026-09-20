@@ -185,13 +185,19 @@
     if (fn) {
       if (fn === en) return { status: 'match', isNameMatched: true, matchedName: found, expectedName: exp, source: ex.source, similar: false };
       const similar = en.length >= 2 && fn.length >= 2 && editDistance(en, fn) <= 1;
-      return { status: 'mismatch', isNameMatched: false, matchedName: found, expectedName: exp, source: ex.source, similar };
+      // 한 글자 차이는 OCR 오인식일 수 있어 본인 확인 후 제출 가능(confirmable). 두 글자 이상 다르면 타인으로 보고 확정 반려.
+      return { status: 'mismatch', isNameMatched: false, matchedName: found, expectedName: exp, source: ex.source, similar, confirmable: similar };
     }
     // 성명 항목을 못 읽었지만 원문에 제출자 성명이 그대로 있으면 확인된 것으로 본다(라벨 OCR 실패 대비)
     if (en.length >= 2 && String(text || '').normalize('NFC').replace(/\s+/g, '').includes(en)) {
       return { status: 'match', isNameMatched: true, matchedName: exp, expectedName: exp, source: 'text', similar: false };
     }
-    return { status: 'unverified', isNameMatched: false, matchedName: '', expectedName: exp, source: '', similar: false };
+    // 성명 항목은 못 읽었지만 원문 어딘가에 제출자 성명과 한 글자 차이인 이름이 있으면 OCR 오인식으로 보고 본인 확인 대상으로 둔다
+    const t = String(text || '').normalize('NFC');
+    const toks = t.match(/[가-힣]{2,5}/g) || [];
+    const near = en.length >= 2 ? toks.find((k) => k.length === en.length && editDistance(en, k) <= 1) : '';
+    // 이름이 아예 안 읽힌 경우도 해상도 문제일 수 있으므로 본인 확인 후 제출 가능(confirmable). 서버가 기록을 남긴다.
+    return { status: 'unverified', isNameMatched: false, matchedName: '', expectedName: exp, source: '', similar: !!near, nearName: near || '', confirmable: true };
   }
 
   function nameMessage(v) {
@@ -200,7 +206,7 @@
         (v.similar ? ' (한 글자 차이입니다. OCR 오인식일 수 있으니 선명한 이미지로 다시 올려 주세요.)' : '');
     }
     if (v.status === 'unverified') {
-      return `⚠️ 수료증에서 성명을 확인하지 못해 제출자('${v.expectedName}') 본인 여부를 검증할 수 없습니다. 성명이 선명하게 보이는 수료증을 다시 올려 주세요.`;
+      return `⚠️ 수료증에서 성명을 자동으로 확인하지 못했습니다. 제출자('${v.expectedName}') 본인의 수료증이 맞다면 아래 '본인 수료증임을 확인하고 제출'을 눌러 주세요. (확인 이력이 기록됩니다)`;
     }
     return `✅ 제출자 성명('${v.expectedName}')과 수료증 상 성명이 일치합니다.`;
   }

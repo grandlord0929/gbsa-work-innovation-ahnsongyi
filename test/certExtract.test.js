@@ -90,7 +90,7 @@ test('verifyName: 일치/불일치/미확인, 공백 무시, 한 글자 차이�
 
   const none = C.verifyName('신소율', { text: '교육명 : 정보보안 교육' });
   assert.deepEqual([none.status, none.isNameMatched, none.matchedName], ['unverified', false, '']);
-  assert.match(C.nameMessage(none), /검증할 수 없습니다/);
+  assert.match(C.nameMessage(none), /자동으로 확인하지 못했습니다/);
 });
 
 test('verifyName: 성명 라벨이 있으면 그 값이 절대적이고, 없을 때만 원문 속 본인 이름으로 보완한다', () => {

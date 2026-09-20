@@ -292,14 +292,14 @@ test('수료증에서 성명을 읽지 못하면 403 NAME_UNVERIFIED (본인 확
   const r = await uploadAs('GBSA2026001', null);
   assert.equal(r.status, 403);
   assert.equal(r.body.code, 'NAME_UNVERIFIED');
-  assert.match(r.body.error, /검증할 수 없습니다/);
+  assert.match(r.body.error, /자동으로 확인하지 못했습니다/);
   assert.deepEqual(stateOf('GBSA2026001'), before);
 });
 
 test('성명이 일치하면 제출되고, 공백/줄바꿈으로 흩어진 성명도 일치로 본다', async () => {
   const r = await uploadAs('GBSA2026001', '홍 길 동');
   assert.equal(r.status, 200);
-  assert.deepEqual(r.body.nameCheck, { isNameMatched: true, matchedName: '홍길동', expectedName: '홍길동' });
+  assert.deepEqual(r.body.nameCheck, { isNameMatched: true, confirmedByUser: false, matchedName: '홍길동', expectedName: '홍길동' });
   assert.equal(r.body.matchedTask.status, 'done');
 });
 
@@ -354,4 +354,22 @@ test('여러 줄 교육명은 서버 매칭·이력에 공백 정규화된 한 �
   assert.ok([200, 422].includes(r.status)); // 개인정보/정보보안 키워드가 모두 있어 업무 특정이 모호하면 422(후보 선택)
   if (r.status === 422) assert.equal(r.body.candidates.length, 2);
   else assert.equal(r.body.cert.course_name, '2026년 하반기 개인정보보호 및 정보 보안 교육');
+});
+
+test('성명을 못 읽은 수료증은 본인 확인(nameConfirmed) 후 제출되고 이력에 남는다', async () => {
+  const noConfirm = await uploadAs('GBSA2026001', null);
+  assert.equal(noConfirm.status, 403); assert.equal(noConfirm.body.confirmable, true);
+  const r = await api('/api/tasks/cert-upload', { method: 'POST', body: certForm({ empNo: 'GBSA2026001', courseName: '정보보안', ocrText: '정보보안 교육', nameConfirmed: 'true' }, '수료증.png', null) });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.nameCheck.confirmedByUser, true);
+  assert.equal(r.body.nameCheck.isNameMatched, false);
+});
+
+test('한 글자 차이(OCR 오인식 가능)는 본인 확인 후 제출, 명백히 다른 이름은 확인해도 거부', async () => {
+  const clear = await api('/api/tasks/cert-upload', { method: 'POST', body: certForm({ empNo: 'GBSA2026001', courseName: '개인정보', ocrText: '개인정보', nameConfirmed: 'true' }, '수료증.png', '강하율') });
+  assert.equal(clear.status, 403); assert.equal(clear.body.code, 'NAME_MISMATCH'); assert.equal(clear.body.confirmable, false);
+  const near = await api('/api/tasks/cert-upload', { method: 'POST', body: certForm({ empNo: 'GBSA2026001', courseName: '정보보안', ocrText: '정보보안' }, '수료증.png', '홍길둥') });
+  assert.equal(near.status, 403); assert.equal(near.body.confirmable, true);
+  const ok = await api('/api/tasks/cert-upload', { method: 'POST', body: certForm({ empNo: 'GBSA2026001', courseName: '정보보안', ocrText: '정보보안', nameConfirmed: 'true' }, '수료증.png', '홍길둥') });
+  assert.equal(ok.status, 200);
 });
