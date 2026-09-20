@@ -93,13 +93,21 @@ test('verifyName: 일치/불일치/미확인, 공백 무시, 한 글자 차이�
   assert.match(C.nameMessage(none), /자동으로 확인하지 못했습니다/);
 });
 
-test('verifyName: 성명 라벨이 있으면 그 값이 절대적이고, 없을 때만 원문 속 본인 이름으로 보완한다', () => {
-  // 라벨상 성명이 타인이면 원문 다른 곳에 본인 이름이 있어도 불일치
-  assert.equal(C.verifyName('신소율', { text: '성명 : 강하율\n담당자 : 신소율' }).status, 'mismatch');
-  // 라벨 없이 본인 이름이 원문에 있으면 확인(라벨 OCR 실패 대비), 다른 사람 이름만 있으면 미확인
-  const viaText = C.verifyName('신소율', { text: '수료증\n2026년 정보보안 교육\n신소율 귀하' });
-  assert.deepEqual([viaText.status, viaText.source], ['match', 'text']);
-  assert.equal(C.verifyName('신소율', { text: '수료증\n강하율 귀하' }).status, 'unverified');
+test('verifyName: 라벨 표기와 무관하게 제출자 이름이 원문에 있으면 본인 확인, 이름이 다르면 불일치', () => {
+  // 라벨이 "성 명" 이든 "이름" 이든 없든, 본인 이름이 이름으로서 적혀 있으면 일치
+  for (const t of ['성      명 : 신소율', '이름 : 신소율', '수료자 신소율', '수료증\n\n신소율\n\n교육과정:', '수료증\n신소율 귀하', '성 명 : 신 소 율']) {
+    const v = C.verifyName('신소율', { text: t });
+    assert.deepEqual([t, v.status, v.matchedName], [t, 'match', '신소율']);
+  }
+  // 여러 OCR 패스를 합친 원문에서 한 패스가 라벨 값을 오인식(신소울)해도 다른 패스에서 읽힌 본인 이름을 인정
+  assert.equal(C.verifyName('신소율', { text: '성명 : 신소울\n\n신소율' }).status, 'match');
+  // 다른 글자에 붙어 있는 경우(이수하였으므로 → 이수)는 이름으로 보지 않는다
+  assert.notEqual(C.verifyName('이수', { text: '성실히 이수하였으므로 이수일자 2026년' }).status, 'match');
+  assert.equal(C.verifyName('이수', { text: '성명 : 이 수' }).status, 'match');
+  // 다른 사람 이름만 있으면 불일치(라벨 값 또는 이름만 홀로 적힌 줄), 이름이 전혀 없으면 미확인
+  assert.equal(C.verifyName('신소율', { text: '성명 : 강하율' }).status, 'mismatch');
+  assert.equal(C.verifyName('신소율', { text: '수료증\n\n강하율\n\n교육과정:' }).status, 'mismatch');
+  assert.equal(C.verifyName('신소율', { text: '수료증\n정보보안 교육' }).status, 'unverified');
   // 호출자가 미리 추출한 성명(certName)을 넘겨도 동일하게 비교
   assert.equal(C.verifyName('신소율', { certName: '강하율', text: '' }).status, 'mismatch');
   assert.equal(C.verifyName('신소율', { certName: '신소율', text: '' }).status, 'match');
@@ -124,4 +132,34 @@ test('extractCert(text, {expectedName}) 결과 객체에 isNameMatched / matched
   const none = C.extractCert('교육명 : 정보보안 교육', { expectedName: '신소율' });
   assert.deepEqual([none.isNameMatched, none.matchedName, none.nameStatus], [false, '', 'unverified']);
   assert.equal('isNameMatched' in C.extractCert('성명 : 신소율'), false); // expectedName 을 안 주면 검증 필드 없음
+});
+
+// 실제 스캔 PDF(2026년 하반기 정보보안 교육 수료증)를 브라우저 OCR 로 읽은 원문: PSM 6 은 굵은 이름 값을 오인식(BUS)하고, PSM 11 이 읽어 낸다
+const PSM6 = '제 2026-560-0920호\n수 료 승\n성      명 ： BUS\n교 육 과 정： 2026년 하반기 정보보안 교\n으\n=\n수 료 YX: 20269 09월 20일\n위 사람은 개인정보 보호 및 기업 정보 자산 안전\n관리를 위하여\n실시한 「2026년 하반기 정보보안 교육」과정을\n성실히 이수하였으므로 본 수료증을 수여합니다.\n2026년 09월 20일\n승    흐으\n경기도경제과학진흥원장';
+const PSM11 = (n) => `H| 2026-SEC-0920%\n\n수료 증\n\nAM\n\n며\n\n${n}\n\n교육과정:\n\n2026년 하반기 정보보안 교\n\n수료일자:\n\n2026년 09월 20일\n\n위 사람은 개인정보 보호 및 기업 정보 자산 안전`;
+
+test('실제 스캔 수료증: PSM6 만으로는 미확인, PSM11 결과를 합치면 본인 확인 + 잘린 교육명은 본문 인용 문장으로 복원', () => {
+  const only6 = C.extractCert(PSM6, { expectedName: '홍길동' });
+  assert.equal(only6.nameStatus, 'unverified');
+  assert.equal(only6.courseName, '2026년 하반기 정보보안 교육'); // "…정보보안 교" + "으" 가 아니라 「…교육」 문장에서 복원
+  assert.equal(only6.issuer, '경기도경제과학진흥원');            // "…진흥원장" 의 직함만 제거
+  assert.equal(only6.completedDate, '2026-09-20');
+  const both = C.extractCert(PSM6 + '\n\n' + PSM11('홍길동'), { expectedName: '홍길동' });
+  assert.deepEqual([both.nameStatus, both.isNameMatched, both.matchedName, both.certName], ['match', true, '홍길동', '홍길동']);
+});
+
+test('실제 스캔 수료증: 다른 사람(강하율) 수료증을 신소율이 제출하면 불일치, 같은 사람이면 일치', () => {
+  const other = C.extractCert(PSM6 + '\n\n' + PSM11('강하율'), { expectedName: '신소율' });
+  assert.deepEqual([other.nameStatus, other.isNameMatched, other.matchedName], ['mismatch', false, '강하율']);
+  assert.equal(C.extractCert(PSM11('신소율'), { expectedName: '신소율' }).nameStatus, 'match');
+});
+
+test('교육명이 단어 중간(교/육)에서 줄바꿈된 경우 공백 없이 붙이고, 일반 줄바꿈은 공백으로 잇는다', () => {
+  assert.equal(C.extractCourseName('교육과정: 2026년 하반기 정보보안 교\n육\n수료일자: 2026년 09월 20일'), '2026년 하반기 정보보안 교육');
+  assert.equal(C.extractCourseName('교육명 : 2026년 하반기 정보보안 강화 및 사이버 위협\n대응 실무 교육\n발급기관 : 경기도경제과학진흥원'), '2026년 하반기 정보보안 강화 및 사이버 위협 대응 실무 교육');
+});
+
+test('여러 OCR 패스를 합친 원문에서 발급기관은 글자가 덜 빠진(긴) 후보를 고른다', () => {
+  const t = '경기도경제과학진흥원장\n\n기도경제과학진흥원장';
+  assert.equal(C.extractIssuer(t), '경기도경제과학진흥원');
 });

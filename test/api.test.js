@@ -447,3 +447,11 @@ test('관리자 대시보드: 재제출 요청 중 건수는 직원이 다시 �
   await confirmUpload('GBSA2026001', null);
   assert.equal((await api('/api/admin/overview')).body.resubmitRequested, 0);
 });
+
+test('성명 라벨이 어떻게 적혔든 수료증 안에서 본인 이름을 찾으면 제출된다 (라벨 값 오인식 + 이름만 홀로 읽힌 실제 스캔 패턴)', async () => {
+  const text = '수 료 승\n성      명 ： BUS\n교 육 과 정： 2026년 하반기 정보보안 교\n으\n실시한 「2026년 하반기 정보보안 교육」과정을\n\n수료 증\n\n홍길동\n\n교육과정:';
+  const ok = await api('/api/tasks/cert-upload', { method: 'POST', body: certForm({ empNo: 'GBSA2026001', courseName: '2026년 하반기 정보보안 교육', ocrText: text }, '수료증.pdf', null) });
+  assert.equal(ok.status, 200); assert.equal(ok.body.nameCheck.isNameMatched, true);
+  const other = await api('/api/tasks/cert-upload', { method: 'POST', body: certForm({ empNo: 'GBSA2026001', courseName: '2026년 하반기 정보보안 교육', ocrText: text.replace('홍길동', '강하율') }, '수료증.pdf', null) });
+  assert.equal(other.status, 403); assert.equal(other.body.code, 'NAME_MISMATCH'); assert.equal(other.body.matchedName, '강하율');
+});

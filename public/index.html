@@ -836,27 +836,32 @@ function preprocessForOcr(src,{binarize=true,target=1200}={}){
 async function ocrCertificate(source,onProgress){
   const worker=await getOcrWorker();
   const base=await toCanvas(source);
-  // 해상도가 낮은 수료증(작은 글씨)을 위해 확대 시도(폭 2000px 목표)와 희소 텍스트 모드(PSM 11)를 뒤에 둔다.
+  // 시도 순서 (실제 스캔 수료증 실험 결과 반영):
+  //  - PSM 6(텍스트 블록): 교육명·이수일자 등 "라벨 : 값" 줄 구조를 잘 읽지만, 굵은/스타일 있는 이름 값은 BUS·MAE 처럼 오인식하는 일이 잦다.
+  //  - PSM 11(흩어진 글자): 줄 구조는 잃지만 이름 같은 짧은 글자 덩어리를 정확히 읽는다 → 2번째에 바로 실행해 "이름 찾기"에 사용.
+  //  - 그 뒤는 저해상도/저대비 대비 보조 시도(콘트라스트, 2배 확대, 이진화, 자동 분할).
+  const big={binarize:false,target:2000};
   const attempts=[
     {name:'원본·텍스트블록',psm:OCR_PSM.BLOCK,img:()=>base},
+    {name:'원본·이름 찾기(흩어진 글자)',psm:OCR_PSM.SPARSE,img:()=>base,sparse:true},
     {name:'콘트라스트 조정',psm:OCR_PSM.BLOCK,img:()=>preprocessForOcr(base,{binarize:false}).canvas},
+    {name:'2배 확대·이름 찾기',psm:OCR_PSM.SPARSE,img:()=>preprocessForOcr(base,big).canvas,sparse:true},
     {name:'이진화',psm:OCR_PSM.BLOCK,img:()=>preprocessForOcr(base,{binarize:true}).canvas},
     {name:'원본·자동분할',psm:OCR_PSM.AUTO,img:()=>base},
-    {name:'2배 확대',psm:OCR_PSM.BLOCK,img:()=>preprocessForOcr(base,{binarize:false,target:2000}).canvas},
+    {name:'2배 확대',psm:OCR_PSM.BLOCK,img:()=>preprocessForOcr(base,big).canvas},
     {name:'2배 확대·이진화',psm:OCR_PSM.BLOCK,img:()=>preprocessForOcr(base,{binarize:true,target:2000}).canvas},
-    {name:'확대·흩어진 글자',psm:OCR_PSM.SPARSE,img:()=>preprocessForOcr(base,{binarize:false,target:2000}).canvas},
   ];
-  let text='', used=[];
+  let text='', used=[], sparseDone=false;
   for(let i=0;i<attempts.length;i++){
     const a=attempts[i];
     ocrProgress=m=>onProgress&&onProgress({...m,pass:i+1,passName:a.name});
     await setOcrMode(worker,a.psm);
     const t=(await worker.recognize(a.img())).data.text||'';
-    text+=(text?String.fromCharCode(10,10):"")+t; used.push(a.name);
+    text+=(text?String.fromCharCode(10,10):"")+t; used.push(a.name); if(a.sparse) sparseDone=true;
+    // 모든 패스의 원문을 합쳐 "제출자 이름이 문서 안에 있는지" 본다(라벨이 '성 명'/'이름' 등 무엇이든 무관).
     const f=CertExtract.extractCert(text,{expectedName:me&&me.name});
-    // 교육명을 읽고 성명이 본인과 확인(일치)되면 중단. 성명을 못 읽었으면 다음 시도로 계속한다.
-    if(f.courseName&&f.certName&&f.nameStatus==='match') break;
-    if(f.courseName&&f.nameStatus==='mismatch'&&!f.nameSimilar) break;   // 명백한 타인 이름을 읽었으면 더 시도할 필요 없음
+    if(f.nameStatus==='match'&&(f.courseName||i>=2)) break;                    // 본인 이름을 찾았고 교육명도 읽었으면 끝
+    if(f.nameStatus==='mismatch'&&!f.nameSimilar&&sparseDone) break;           // 이름 찾기까지 했는데 다른 사람 이름이면 끝
   }
   return {text,passes:used.length,used};
 }

@@ -73,15 +73,35 @@
         parts.push(ln);
         taken += 1;
       }
-      const val = normalizeValue(parts.join(' '));
+      // 한 글자짜리 이어진 줄(예: "…정보보안 교" + "육")은 단어 중간에서 줄이 바뀐 것이므로 공백 없이 붙인다
+      let joined = parts[0] || '';
+      for (let k = 1; k < parts.length; k++) joined += (/^[가-힣]$/.test(parts[k].trim()) ? '' : ' ') + parts[k];
+      const val = normalizeValue(joined);
       if (val) return val;
     }
     return '';
   }
 
+  // "…실시한 「2026년 하반기 정보보안 교육」과정을" 처럼 문장 속 인용부호로 묶인 교육명
+  function quotedCourse(lines) {
+    for (const l of lines) {
+      const m = l.match(/(?:실시한|이수한|참석한|수료한|받은|참여한)\s*[「『“"'‘\[]+\s*([^」』”"'’\]]{4,80}?)\s*[」』”"'’\]]/);
+      if (m) return normalizeValue(m[1]);
+    }
+    return '';
+  }
+  const hangulWords = (v) => (String(v).match(/[가-힣]{2,}/g) || []);
+  const nospace = (v) => String(v).replace(/\s+/g, '');
+
   function extractCourseName(text) {
     const lines = toLines(text);
     const labeled = extractLabeled(lines, L_COURSE, { maxCont: 3, terminatorRe: COURSE_END_RE, orgBoundary: true });
+    // 교육명이 라벨 줄에서 잘렸거나(예: "…정보보안 교" / "육") 못 읽은 경우, 본문 인용 문장의 교육명이 라벨 값을 포함하면 그것을 쓴다
+    const quoted = quotedCourse(lines);
+    if (quoted) {
+      const words = hangulWords(labeled);
+      if (!labeled || (words.length && words.every((w) => nospace(quoted).includes(w))) || nospace(quoted).includes(nospace(labeled).slice(0, 10))) return quoted;
+    }
     if (labeled) return labeled;
     // 라벨이 없는 수료증: 주제어가 들어간 교육/과정 줄 + 이어지는 줄
     const idx = lines.findIndex((l) => /(교육|연수|과정)/.test(l) && TOPIC_RE.test(l) && !/(위\s*사람|수여|이수하|성실)/.test(l));
@@ -112,9 +132,16 @@
     const lines = toLines(text);
     const labeled = extractLabeled(lines, L_ISSUER, { maxCont: 1, terminatorRe: ORG_END_RE });
     if (labeled) return labeled;
-    const strip = (l) => l.replace(/\s*(원장|장|대표|귀하)\s*\S*$/, '');
-    const l = [...lines].reverse().find((x) => x && ORG_END_RE.test(strip(x)) && x !== courseName && !/(교육|과정)/.test(x));
-    return l ? normalizeValue(strip(l)) : '';
+    // "경기도경제과학진흥원장" 처럼 직함(장/원장/대표)이 붙은 기관명: 직함을 떼어 본 후보 중 기관명 어미로 끝나는 것을 고른다
+    const strips = (l) => [l, l.replace(/\s*(?:원장|대표|귀하)\s*\S*$/, ''), l.replace(/\s*장\s*\S*$/, '')];
+    // 여러 OCR 패스를 합친 원문에는 같은 기관명이 조금씩 다르게(글자 누락) 여러 번 나오므로 가장 온전한(긴) 후보를 고른다
+    let found = '';
+    for (const x of lines) {
+      if (!x || x === courseName || /(교육|과정)/.test(x)) continue;
+      const c = strips(x).find((v) => v && ORG_END_RE.test(v));
+      if (c && c.length <= 30 && normalizeValue(c).length > normalizeValue(found).length) found = c;
+    }
+    return found ? normalizeValue(found) : '';
   }
 
   // ---------- 성명 ----------
@@ -139,6 +166,33 @@
     return run ? cleanNameToken(run[1]) : '';
   }
 
+  // ---------- 이름 자체 찾기 ----------
+  // 수료증의 항목 이름은 "성 명", "이름", "수료자" 등 제각각이고 OCR 이 라벨/값을 서로 다른 줄로 나누는 일도 많다.
+  // 그래서 라벨을 찾기보다 제출자 이름이 문서 어딘가에 "이름으로서" 적혀 있는지를 먼저 본다.
+  //  - "홍길동", "홍 길 동" 처럼 글자 사이가 띄어져도 인정
+  //  - 앞뒤에 다른 한글이 붙은 경우는 제외 ("이수하였으므로" 속의 "이수" 등). 단, 조사/호칭(은·는·이·가·님·씨·귀하…)은 허용
+  const escRe = (c) => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  function findNameInText(text, name) {
+    const n = String(name || '').normalize('NFC').replace(/\s+/g, '');
+    if (n.length < 2) return false;
+    const pat = n.split('').map(escRe).join('[ \\t]*');
+    const re = new RegExp(`(?<![가-힣])${pat}(?![가-힣])|(?<![가-힣])${pat}(?=(?:은|는|이|가|을|를|의|님|씨|께|귀하|앞)(?![가-힣]))`);
+    return toLines(String(text || '').normalize('NFC')).some((l) => re.test(l));
+  }
+
+  // 다른 사람의 수료증인지 알아보기 위한 후보: 이름만 홀로 적힌 줄(3글자, 흔한 성씨로 시작)
+  const SURNAMES = '김이박최정강조윤장임한오서신권황안송류전홍고문양손배백허유남심노하곽성차주우구민나진지엄채원천방공현함변염여추도소석선설마길연위표명기반왕금옥육인맹제모탁국어은편용예경봉사부가복태목형피두감호계';
+  const NOT_NAMES = new Set(['수료증', '이수증', '수료자', '교육과정', '수료일자', '이수일자', '발급기관', '경기도', '관리를', '위하여', '이수하', '실시한', '진흥원', '합니다', '증서']);
+  function standaloneName(lines) {
+    for (const l of lines) {
+      const m = l.match(/^([가-힣])\s?([가-힣])\s?([가-힣])$/);
+      if (!m) continue;
+      const v = m[1] + m[2] + m[3];
+      if (SURNAMES.includes(m[1]) && !NOT_NAMES.has(v) && !NAME_BAD_WORDS.includes(v)) return v;
+    }
+    return '';
+  }
+
   function extractName(text) {
     const lines = toLines(text);
     const labelRe = new RegExp(`(?:^|[\\s|,(])(?:${L_NAME})\\s*(?:[:]\\s*|\\s+|(?=[가-힣]))([^\\n]*)`);
@@ -156,6 +210,8 @@
       const name = m ? cleanNameToken(m[1]) : '';
       if (name) return { name, source: 'sentence' };
     }
+    const alone = standaloneName(lines);
+    if (alone) return { name: alone, source: 'standalone' };
     return { name: '', source: '' };
   }
 
@@ -177,6 +233,10 @@
   //  isNameMatched / matchedName(= 수료증 상 성명) 은 화면·API 공통 필드
   function verifyName(expected, { certName = '', text = '' } = {}) {
     const exp = String(expected || '').trim();
+    // 1순위: 제출자 이름이 수료증 안 어디에든 이름으로 적혀 있으면 본인 확인 (라벨 표기와 무관)
+    if (findNameInText(text, exp)) {
+      return { status: 'match', isNameMatched: true, matchedName: exp, expectedName: exp, source: 'found', similar: false };
+    }
     const ex = certName ? { name: certName, source: 'given' } : extractName(text);
     const found = String(ex.name || '').trim();
     const en = normalizeName(exp);
@@ -187,10 +247,6 @@
       const similar = en.length >= 2 && fn.length >= 2 && editDistance(en, fn) <= 1;
       // 한 글자 차이는 OCR 오인식일 수 있어 본인 확인 후 제출 가능(confirmable). 두 글자 이상 다르면 타인으로 보고 확정 반려.
       return { status: 'mismatch', isNameMatched: false, matchedName: found, expectedName: exp, source: ex.source, similar, confirmable: similar };
-    }
-    // 성명 항목을 못 읽었지만 원문에 제출자 성명이 그대로 있으면 확인된 것으로 본다(라벨 OCR 실패 대비)
-    if (en.length >= 2 && String(text || '').normalize('NFC').replace(/\s+/g, '').includes(en)) {
-      return { status: 'match', isNameMatched: true, matchedName: exp, expectedName: exp, source: 'text', similar: false };
     }
     // 성명 항목은 못 읽었지만 원문 어딘가에 제출자 성명과 한 글자 차이인 이름이 있으면 OCR 오인식으로 보고 본인 확인 대상으로 둔다
     const t = String(text || '').normalize('NFC');
@@ -225,6 +281,7 @@
     };
     if (expectedName !== undefined) {
       const v = verifyName(expectedName, { certName: n.name, text });
+      if (v.status === 'match' && !out.certName) { out.certName = v.matchedName; out.nameSource = 'found'; }
       out.isNameMatched = v.isNameMatched;
       out.matchedName = v.matchedName;
       out.nameStatus = v.status;
@@ -233,5 +290,5 @@
     return out;
   }
 
-  return { extractCert, extractCourseName, extractIssuer, extractDate, extractName, verifyName, nameMessage, normalizeName, normalizeValue };
+  return { extractCert, findNameInText, extractCourseName, extractIssuer, extractDate, extractName, verifyName, nameMessage, normalizeName, normalizeValue };
 });
