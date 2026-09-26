@@ -51,6 +51,15 @@ h1{font-size:1.8rem;font-weight:700;color:var(--navy);margin:0 0 4px;letter-spac
 .kpi{padding:16px;text-align:center}
 .kpi span{display:block;color:var(--muted);font-size:.85rem;font-weight:600;margin-bottom:4px}.kpi strong{display:block;font-size:1.6rem;font-weight:800;color:#1f2937;letter-spacing:-.5px}.kpi small{display:block;color:#9ca3af;font-size:.78rem;margin-top:4px}
 .kpi.red strong{color:#dc2626}.kpi.amber strong{color:#d97706}.kpi.green strong{color:#059669}
+/* 클릭형 필터 카드 */
+.kpi.clickable{cursor:pointer;user-select:none;transition:transform .12s,box-shadow .12s,border-color .12s,background .12s}
+.kpi.clickable:hover{transform:translateY(-2px);border-color:#93c5fd;box-shadow:0 6px 16px #1e3a8a1f}
+.kpi.clickable:active{transform:translateY(0)}
+.kpi.active{border-color:var(--navy);background:var(--blue50);box-shadow:0 0 0 2px var(--navy),0 6px 16px #1e3a8a26}
+.kpi.active:hover{border-color:var(--navy);box-shadow:0 0 0 2px var(--navy),0 6px 16px #1e3a8a26}
+.kpi .kpi-hint{display:block;margin-top:6px;font-size:11px;font-weight:700;color:var(--navy);opacity:0}.kpi.active .kpi-hint{opacity:1}
+.filterbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:-4px 0 12px;padding:8px 12px;border-radius:8px;background:var(--blue50);border:1px solid var(--blue100);color:var(--navy);font-size:13px;font-weight:600}
+.filterbar .btn{margin-left:auto}
 
 .grid{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:22px;align-items:start}
 .tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px;border-bottom:1px solid var(--line)}
@@ -195,6 +204,7 @@ footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
         <button class="tab" data-filter="edu">🎓 교육 수료증 제출<span class="n" id="cnt-edu">0</span></button>
         <button class="tab" data-filter="doc">📋 요구자료 제출<span class="n" id="cnt-doc">0</span></button>
       </div>
+      <div id="filterBar" class="filterbar" role="status" hidden></div>
       <div id="cards" class="cards"><div class="muted">불러오는 중...</div></div>
 
       <div class="panel" style="margin-top:16px" id="certPanel">
@@ -424,26 +434,44 @@ function getSeen(){ const v=LS.get(seenKey()); try{ return v?new Set(JSON.parse(
 function markSeen(){ if(me && tasks.length) LS.set(seenKey(),JSON.stringify(tasks.map(t=>t.id))) }
 let seen=null; const announced=new Set();
 
+/* 요약 카드 = 클릭형 필터. 이미 불러온 tasks 배열을 filter() 로 걸러낼 뿐 서버를 다시 호출하지 않는다. (마감일 기준 판정은 관리자 확인 표시와 무관)
+   pending: 제출완료가 아닌 모든 업무 / soon: 긴급·주의(마감 3일 이내) / over: 기한초과 / done: 제출완료 */
+const dueCls=t=>dinfo({...t,review:null}).cls;
+const KPI_FILTERS={
+  pending:{label:'미제출 업무', fn:t=>t.status!=='done'},
+  soon:{label:'긴급 · 주의', fn:t=>t.status!=='done'&&['urgent','warn'].includes(dueCls(t))},
+  over:{label:'기한 초과', fn:t=>t.status!=='done'&&dueCls(t)==='over'},
+  done:{label:'제출 완료', fn:t=>t.status==='done'},
+};
+let kpiFilter='';   // '' = 필터 없음
+function setKpiFilter(k){ kpiFilter=(k&&k!==kpiFilter&&KPI_FILTERS[k])?k:''; renderCards(); }
+
 function renderKpi(){
   const pend=tasks.filter(t=>t.status!=='done');
-  const c=k=>pend.filter(t=>dinfo({...t,review:null}).cls===k).length;   // 마감일 기준(관리자 확인 표시와 무관)
+  const n=k=>tasks.filter(KPI_FILTERS[k].fn).length;
   const resub=pend.filter(t=>t.review?.state==='rejected'), waiting=pend.filter(t=>t.review?.state==='pending');
   $('#resubBanner').innerHTML=resub.length?`<div class="resub-banner" role="alert"><b>↩ 재제출 요청 받음 ${resub.length}건</b><span>${resub.map(t=>esc(t.title)+(t.review.reason?` (사유: ${esc(t.review.reason)})`:'')).join(' · ')} — 수료증을 다시 올려 주세요.</span><button class="btn sm danger" id="resubGo">지금 다시 제출</button></div>`:'';
   const go=$('#resubGo'); if(go) go.onclick=()=>{ const el=$(`[data-card="${resub[0].id}"]`); if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.add('flash'); } };
   $('#myKpi').innerHTML=[
-    ['','미제출 업무',pend.length,`전체 ${tasks.length}건 중`],
-    ['amber','긴급 · 주의',c('urgent')+c('warn'),'마감 3일 이내'],
-    ['red','기한 초과',c('over'),'즉시 제출 필요'],
-    ['green','제출 완료',tasks.length-pend.length,'제출완료 처리됨'],
+    ['','미제출 업무',n('pending'),`전체 ${tasks.length}건 중`,'pending'],
+    ['amber','긴급 · 주의',n('soon'),'마감 3일 이내','soon'],
+    ['red','기한 초과',n('over'),'즉시 제출 필요','over'],
+    ['green','제출 완료',n('done'),'제출완료 처리됨','done'],
     ...(resub.length?[['red','재제출 요청 받음',resub.length,'수료증 다시 제출 필요']]:[]),
     ...(waiting.length?[['','관리자 확인 중',waiting.length,'확인 후 제출 완료']]:[]),
-  ].map(([k,l,v,s])=>`<div class="kpi ${k}"><span>${l}</span><strong>${v}<small style="font-size:14px;font-weight:600"> 건</small></strong><small>${s}</small></div>`).join('');
+  ].map(([k,l,v,sub,f])=>`<div class="kpi ${k}${f?' clickable':''}${f&&f===kpiFilter?' active':''}"${f?` data-kpi="${f}" role="button" tabindex="0" aria-pressed="${f===kpiFilter}" title="${f===kpiFilter?'클릭하면 필터가 해제됩니다':`클릭하면 '${l}' 업무만 보여줍니다`}"`:''}><span>${l}</span><strong>${v}<small style="font-size:14px;font-weight:600"> 건</small></strong><small>${sub}</small>${f?'<em class="kpi-hint">✓ 필터 적용 중</em>':''}</div>`).join('');
 }
+$('#myKpi').addEventListener('click',e=>{ const c=e.target.closest('[data-kpi]'); if(c) setKpiFilter(c.dataset.kpi); });
+$('#myKpi').addEventListener('keydown',e=>{ if(e.key!=='Enter'&&e.key!==' ') return; const c=e.target.closest('[data-kpi]'); if(c){ e.preventDefault(); setKpiFilter(c.dataset.kpi); } });
 function renderCards(){
   const filter=$('#catTabs .active')?.dataset.filter||'all';
   ['all','service','edu','doc'].forEach(k=>$('#cnt-'+k).textContent = k==='all'?tasks.length:tasks.filter(t=>t.cat===k).length);
   renderKpi();
-  const list = filter==='all' ? tasks : tasks.filter(t=>t.cat===filter);
+  let list = filter==='all' ? tasks : tasks.filter(t=>t.cat===filter);
+  if(kpiFilter) list=list.filter(KPI_FILTERS[kpiFilter].fn);   // 카테고리 탭과 요약 카드 필터는 함께(AND) 적용
+  const fb=$('#filterBar');
+  fb.hidden=!kpiFilter;
+  if(kpiFilter) fb.innerHTML=`<span>🔎 필터: <b>${KPI_FILTERS[kpiFilter].label}</b> · ${list.length}건${filter==='all'?'':' (선택한 탭 기준)'}</span><button class="btn sm" id="filterClear" type="button">필터 해제</button>`;
   if(list.length===0){ $('#cards').innerHTML='<div class="panel muted" style="text-align:center">해당하는 업무가 없습니다.</div>'; return }
   $('#cards').innerHTML = list.map(t=>{
     const i=dinfo(t), done=t.status==='done', isNew=seen && !seen.has(t.id);
@@ -510,7 +538,8 @@ async function loadTasks({quiet}={}){
     if(!quiet){ $('#empError').hidden=false; $('#empError').textContent='업무 목록을 불러오지 못했습니다: '+e.message; }
   }
 }
-$('#catTabs').onclick=e=>{ const b=e.target.closest('.tab'); if(!b) return; $$('#catTabs .tab').forEach(x=>x.classList.remove('active')); b.classList.add('active'); renderCards() };
+$('#catTabs').onclick=e=>{ const b=e.target.closest('.tab'); if(!b) return; $$('#catTabs .tab').forEach(x=>x.classList.remove('active')); b.classList.add('active'); if(b.dataset.filter==='all') kpiFilter=''; renderCards() };
+$('#filterBar').addEventListener('click',e=>{ if(e.target.closest('#filterClear')) setKpiFilter(''); });
 
 // 직원 → 관리자: [제출완료] → POST /api/tasks/:id/submit → DB status='done'
 $('#cards').onclick=async e=>{
