@@ -123,6 +123,24 @@ h1{font-size:1.8rem;font-weight:700;color:var(--navy);margin:0 0 4px;letter-spac
 .demo-btn.alt{background:#fff;color:#b91c1c;border:1px solid #fecaca;box-shadow:none;margin-top:8px}.demo-btn.alt:hover:not(:disabled){background:var(--red50)}
 
 /* admin */
+.ops{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;margin-bottom:18px;align-items:start}
+.ops .panel+.panel{margin-top:0}
+.ops .ph h2{font-size:16px;color:var(--navy)}
+.recs{display:grid;gap:10px;margin-top:12px}
+.rec{border:1px solid var(--line);border-radius:10px;padding:12px;background:#fff}
+.rec-title{display:flex;align-items:center;gap:10px}.rec-title .field{margin:0;flex:1;min-width:0}
+.rec-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(0,.9fr);gap:10px;margin-top:10px;font-size:12px;color:var(--muted)}
+.rec-grid label,.rec-grid>div{display:flex;flex-direction:column;gap:4px;font-weight:700}
+.rec-grid .in{margin:0;width:100%;padding:8px 10px}.rec-grid input[type=date]{padding:7px 8px;border:1px solid #cbd5e1;border-radius:8px}
+.rec-grid b.dept{font-size:13.5px;color:var(--text);padding:8px 0}
+.rec-empty{padding:10px 2px}
+.admtabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 14px}
+.admtab{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 16px;box-shadow:var(--shadow);cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s,background .12s}
+.admtab .t{font-size:13.5px;font-weight:700;color:#374151}.admtab .c{font-size:1.15rem;font-weight:800;color:var(--navy)}
+.admtab:hover{transform:translateY(-2px);border-color:#93c5fd;box-shadow:0 6px 16px #1e3a8a1f}
+.admtab.active{border-color:var(--navy);background:var(--blue50);box-shadow:0 0 0 2px var(--navy),0 6px 16px #1e3a8a26}
+.admtab.active .t{color:var(--navy)}
+.admtab.alert .c{color:var(--red)}
 .two{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:18px;margin-bottom:18px;align-items:start}
 .panel .ph{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
 label.f{display:block;font-size:12.5px;font-weight:700;color:#334155;margin-top:12px}
@@ -161,7 +179,8 @@ details.panel summary{cursor:pointer;font-weight:800;font-size:15px}
 @keyframes tin{from{opacity:0;transform:translateY(8px)}}
 footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
 
-@media(max-width:1000px){.grid,.two{grid-template-columns:1fr}.chat{position:static;height:560px}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ocr-grid,.fields{grid-template-columns:1fr}}
+@media(max-width:1200px){.ops{grid-template-columns:1fr}}   /* 사이드바(288px)를 뺀 콘텐츠 폭이 좁아지면 2열 → 1열 */
+@media(max-width:1000px){.grid,.two{grid-template-columns:1fr}.admtabs{grid-template-columns:repeat(2,minmax(0,1fr))}.rec-grid{grid-template-columns:1fr}.chat{position:static;height:560px}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ocr-grid,.fields{grid-template-columns:1fr}}
 @media(max-width:860px){.app{grid-template-columns:1fr}.sidebar{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:14px}.mode-tabs{grid-template-columns:1fr 1fr}.side-foot,.side-hr{display:none}}
 @media(max-width:700px){.mode-tabs button{justify-content:center}.container{padding:18px 14px 6px}.frow{grid-template-columns:1fr}}
 </style>
@@ -192,7 +211,6 @@ footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
 <main id="employeeView" class="container">
   <div class="pagehead">
     <div><h1>👋 안녕하세요, <span id="greetName">직원</span> 님!</h1><div class="sub-header">오늘 확인 및 조치가 필요한 GBSA 통합 업무 리마인더 현황입니다.</div><div class="live" id="syncStatus"><i></i><span>서버 연결 확인 중...</span></div></div>
-    <div class="actions-row"><button class="btn resetDemoBtn" title="시연 데이터를 처음 상태로 되돌립니다">↺ 시연 데이터 초기화</button></div>
   </div>
   <div id="empError" class="banner" hidden></div>
   <div id="resubBanner"></div>
@@ -245,20 +263,18 @@ footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
     <div class="actions-row"><button class="btn" id="adminRefresh">⟳ 새로고침</button><button class="btn resetDemoBtn" title="시연 데이터를 처음 상태로 되돌립니다">↺ 시연 데이터 초기화</button></div>
   </div>
   <div id="adminError" class="banner" hidden></div>
-  <div class="kpis">
-    <div class="kpi"><span>전체 대상 인원 (사원 DB)</span><strong id="kTotal">-</strong><small id="kTotalSub"></small></div>
-    <div class="kpi green"><span>제출 완료율</span><strong id="kRate">-</strong><small id="kRateSub"></small></div>
-    <div class="kpi amber"><span>미제출 사원</span><strong id="kPending">-</strong><small>미제출 업무가 1건 이상인 사원</small></div>
-    <div class="kpi red"><span>기한 초과 미제출</span><strong id="kOverdue">-</strong><small>마감이 지난 미제출 (사원×업무)</small></div>
+  <div class="ops">
+  <div class="panel" id="ocrPanel">
+    <div class="ph"><h2>공문(OCR)으로 제출요청 자동 생성</h2></div>
+    <div class="muted" style="margin-top:8px">공문·안내문을 올리면 본문의 '요구자료명·과정명·교육명' 등에서 업무명을, '제출기한·마감일' 뒤에서 마감일을 추출하고 업무유형을 자동 분류합니다(업무유형은 직접 바꿀 수 있고, 요청부서는 로그인한 관리자의 부서로 채워집니다). 이미지/PDF는 브라우저 OCR(Tesseract.js)로 텍스트를 읽습니다.</div>
+    <label id="docDrop" class="drop">공문 파일을 끌어놓거나 클릭하세요<br><small>TXT · PDF · JPG · PNG</small><input id="docFile" type="file" hidden accept=".txt,.pdf,.jpg,.jpeg,.png"></label>
+    <textarea id="docText" class="field" rows="6" placeholder="또는 OCR 결과 텍스트를 붙여 넣으세요&#10;예: 가. 요구자료명 : 2026년도 행정사무감사 사전 제출 요구자료&#10;    나. 제출기한 : 2026년 9월 27일(일) 18:00까지"></textarea>
+    <div class="actions-row" style="margin-top:10px"><button id="analyzeBtn" class="btn primary">문서 분석</button></div>
+    <pre id="preview" class="preview">아직 분석된 문서가 없습니다.</pre>
+    <div id="records" class="recs"><div class="muted rec-empty">문서를 분석하면 결과가 표시됩니다.</div></div>
+    <div class="actions-row" style="margin-top:12px"><label class="muted" for="docTarget">발송 대상 부서</label><select id="docTarget" class="in" style="width:auto;margin:0"></select><button id="createBtn" class="btn success">선택 업무 제출요청 발송</button></div>
   </div>
-
-  <div class="panel" id="reviewPanel">
-    <div class="ph"><h2>수료증 확인 요청 <span class="cnt-pill" id="reviewCnt">0</span></h2><span class="muted" id="resubNote"></span><span class="muted">직원이 성명을 자동 확인하지 못해 '본인 확인'으로 제출한 수료증입니다. 이미지를 확인한 뒤 승인하거나 재제출을 요청하세요.</span></div>
-    <div class="rv-list" id="reviewList"><div class="muted">확인 대기 중인 수료증이 없습니다.</div></div>
-  </div>
-
-  <div class="two">
-    <div class="panel">
+    <div class="panel" id="formPanel">
       <div class="ph"><h2>부서별 신규 제출요청 발송</h2></div>
       <div class="muted">선택한 부서의 사원 전원에게 새 업무가 생성되며, 각 사원의 직원 화면 체크리스트에 즉시 나타납니다.</div>
       <form id="reqForm" novalidate>
@@ -273,18 +289,40 @@ footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
       </form>
       <div id="sendResult" class="sendbox" hidden></div>
     </div>
-    <div class="panel">
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><span>전체 대상 인원 (사원 DB)</span><strong id="kTotal">-</strong><small id="kTotalSub"></small></div>
+    <div class="kpi green"><span>제출 완료율</span><strong id="kRate">-</strong><small id="kRateSub"></small></div>
+    <div class="kpi amber"><span>미제출 사원</span><strong id="kPending">-</strong><small>미제출 업무가 1건 이상인 사원</small></div>
+    <div class="kpi red"><span>기한 초과 미제출</span><strong id="kOverdue">-</strong><small>마감이 지난 미제출 (사원×업무)</small></div>
+  </div>
+
+  <div class="admtabs" id="admTabs" role="tablist" aria-label="관리 영역 선택">
+    <button class="admtab" role="tab" data-tab="review" id="admTab-review"><span class="t">🧾 수료증 확인 요청</span><b class="c" id="tcReview">0건</b></button>
+    <button class="admtab" role="tab" data-tab="dept" id="admTab-dept"><span class="t">🏢 부서별 제출률</span><b class="c" id="tcDept">-</b></button>
+    <button class="admtab" role="tab" data-tab="req" id="admTab-req"><span class="t">📨 제출요청 발송 현황</span><b class="c" id="tcReq">-</b></button>
+    <button class="admtab" role="tab" data-tab="emp" id="admTab-emp"><span class="t">👥 사원별 제출 상태</span><b class="c" id="tcEmp">-</b></button>
+  </div>
+
+  <div class="panel tabpane" id="reviewPanel">
+    <div class="ph"><h2>수료증 확인 요청 <span class="cnt-pill" id="reviewCnt">0</span></h2><span class="muted" id="resubNote"></span><span class="muted">직원이 성명을 자동 확인하지 못해 '본인 확인'으로 제출한 수료증입니다. 이미지를 확인한 뒤 승인하거나 재제출을 요청하세요.</span></div>
+    <div class="rv-list" id="reviewList"><div class="muted">확인 대기 중인 수료증이 없습니다.</div></div>
+  </div>
+
+
+    <div class="panel tabpane" id="deptPanel">
       <div class="ph"><h2>부서별 제출률</h2><span class="muted" id="deptNote"></span></div>
       <div class="dept-list" id="deptList"><div class="muted">불러오는 중...</div></div>
     </div>
-  </div>
 
-  <div class="panel">
+  <div class="panel tabpane" id="reqPanel">
     <div class="ph"><h2>제출요청 발송 현황</h2><span class="muted">행의 [보기]로 해당 요청의 사원별 제출 상태만 볼 수 있습니다</span></div>
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>발송일시</th><th>업무명</th><th>대상</th><th>마감일</th><th>제출 현황</th><th></th></tr></thead><tbody id="reqRows"><tr><td colspan="6" class="muted">불러오는 중...</td></tr></tbody></table></div>
   </div>
 
-  <div class="panel" id="empPanel">
+
+  <div class="panel tabpane" id="empPanel">
     <div class="ph"><h2>사원별 제출 상태</h2><span class="muted" id="empCount"></span></div>
     <div class="chips" id="fchips"></div>
     <div class="filters">
@@ -296,16 +334,6 @@ footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
     <div class="pager"><span class="muted" id="pgInfo"></span><div class="actions-row"><button class="btn sm" id="pgPrev">이전</button><button class="btn sm" id="pgNext">다음</button></div></div>
   </div>
 
-  <details class="panel">
-    <summary>공문(OCR)으로 제출요청 자동 생성</summary>
-    <div class="muted" style="margin-top:8px">공문·안내문을 올리면 본문의 '요구자료명·과정명·교육명' 등에서 업무명을, '제출기한·마감일' 뒤에서 마감일을 추출하고 업무유형을 자동 분류합니다(업무유형은 직접 바꿀 수 있고, 요청부서는 로그인한 관리자의 부서로 채워집니다). 이미지/PDF는 브라우저 OCR(Tesseract.js)로 텍스트를 읽습니다.</div>
-    <label id="docDrop" class="drop">공문 파일을 끌어놓거나 클릭하세요<br><small>TXT · PDF · JPG · PNG</small><input id="docFile" type="file" hidden accept=".txt,.pdf,.jpg,.jpeg,.png"></label>
-    <textarea id="docText" class="field" rows="6" placeholder="또는 OCR 결과 텍스트를 붙여 넣으세요&#10;예: 가. 요구자료명 : 2026년도 행정사무감사 사전 제출 요구자료&#10;    나. 제출기한 : 2026년 9월 27일(일) 18:00까지"></textarea>
-    <div class="actions-row" style="margin-top:10px"><button id="analyzeBtn" class="btn primary">문서 분석</button></div>
-    <pre id="preview" class="preview">아직 분석된 문서가 없습니다.</pre>
-    <div class="tbl-wrap" style="margin-top:12px"><table class="tbl"><thead><tr><th></th><th>업무명</th><th>자동분류</th><th>마감일</th><th>요청부서</th></tr></thead><tbody id="records"><tr><td colspan="5" class="muted">문서를 분석하면 결과가 표시됩니다.</td></tr></tbody></table></div>
-    <div class="actions-row" style="margin-top:12px"><label class="muted" for="docTarget">발송 대상 부서</label><select id="docTarget" class="in" style="width:auto;margin:0"></select><button id="createBtn" class="btn success">선택 업무 제출요청 발송</button></div>
-  </details>
 </section>
 
 <footer>ⓒ 경기도경제과학진흥원 · AI 업무 혁신 해커톤 시연용 (사원 DB: Supabase(PostgreSQL) · 백엔드 API 연동)</footer>
@@ -592,6 +620,7 @@ function renderOverview(ov){
   $('#kPending').textContent=`${ov.notSubmitted}명`; $('#kOverdue').textContent=`${ov.overdueTasks}건`;
   fillDeptSelects(ov.byDept.map(d=>({dept:d.dept,employees:d.employees})), ov.totalEmployees);
   $('#deptNote').textContent='부서를 누르면 사원 목록이 필터됩니다';
+  $('#tcDept').textContent=`${ov.byDept.length}개 부서`; $('#tcReq').textContent=`${ov.requests.length}건`;
   $('#deptList').innerHTML=[...ov.byDept].sort((a,b)=>b.rate-a.rate||b.employees-a.employees).map(d=>`
     <button class="dept-row ${A.dept===d.dept?'sel':''}" data-dept="${esc(d.dept)}" aria-pressed="${A.dept===d.dept}">
       <div class="dept-top"><b>${esc(d.dept)}</b><span class="muted">${d.employees}명</span><span class="rate" style="color:${d.rate>=80?'var(--green)':d.rate>=60?'var(--blue)':'var(--amber)'}">${d.rate}%</span></div>
@@ -636,7 +665,7 @@ function renderEmployees(list){
   if(A.dept) chips.push(`<span class="fchip">부서: ${esc(A.dept)}<button data-clear="dept" aria-label="부서 필터 해제">×</button></span>`);
   if(A.requestId){ const r=(window.__reqs||[]).find(x=>x.id==A.requestId); chips.push(`<span class="fchip">요청: ${esc(r?r.title:'#'+A.requestId)}<button data-clear="req" aria-label="요청 필터 해제">×</button></span>`); }
   $('#fchips').innerHTML=chips.join('');
-  $('#empCount').textContent=`조건에 맞는 사원 ${list.total}명`;
+  $('#empCount').textContent=`조건에 맞는 사원 ${list.total}명`; $('#tcEmp').textContent=`${list.total}명`;
   $('#empRows').innerHTML=list.employees.map(e=>{
     const [cls,label]=STATE[e.state]; const rate=e.total?Math.round(e.done/e.total*100):0;
     return `<tr class="${me&&e.empNo===me.empNo?'me':''}" data-emp="${esc(e.empNo)}">
@@ -665,10 +694,23 @@ async function loadAdmin({quiet}={}){
 }
 $('#adminRefresh').onclick=()=>loadAdmin();
 
+/* ---------- 관리 영역 탭(4개 중 1개만 표시) ---------- */
+const ADM_PANES={review:'#reviewPanel',dept:'#deptPanel',req:'#reqPanel',emp:'#empPanel'};
+function showAdminTab(k){
+  if(!ADM_PANES[k]) k='review';
+  LS.set('gbsa.adminTab',k);
+  $$('#admTabs .admtab').forEach(b=>{ const on=b.dataset.tab===k; b.classList.toggle('active',on); b.setAttribute('aria-selected',on); b.tabIndex=on?0:-1; });
+  Object.entries(ADM_PANES).forEach(([t,sel])=>{ $(sel).hidden=t!==k; });
+}
+$('#admTabs').addEventListener('click',e=>{ const b=e.target.closest('.admtab'); if(b) showAdminTab(b.dataset.tab); });
+$('#admTabs').addEventListener('keydown',e=>{ if(e.key!=='ArrowRight'&&e.key!=='ArrowLeft') return; const ks=Object.keys(ADM_PANES), cur=ks.indexOf(LS.get('gbsa.adminTab')||'review'); const n=ks[(cur+(e.key==='ArrowRight'?1:ks.length-1))%ks.length]; showAdminTab(n); $('#admTab-'+n).focus(); });
+showAdminTab(LS.get('gbsa.adminTab')||'review');   // 기본: 수료증 확인 요청
+
 /* ---------- 수료증 관리자 확인 (직원이 '본인 확인'으로 제출한 건) ---------- */
 let reviewSig='';
 function renderReviews(rv){
   $('#reviewCnt').textContent=rv.count; $('#reviewCnt').hidden=rv.count===0;
+  $('#tcReview').textContent=`${rv.count}건`; $('#admTab-review').classList.toggle('alert',rv.count>0);
   $('#resubNote').innerHTML=rv.resubmitRequested?`<span class="rv-flag">↩ 재제출 요청 중 ${rv.resubmitRequested}건 (직원 재업로드 대기)</span> `:'';
   const sig=JSON.stringify(rv.reviews.map(r=>r.id)); if(sig===reviewSig) return; reviewSig=sig;   // 목록이 같으면 다시 그리지 않음(이미지 깜박임 방지)
   $('#reviewList').innerHTML=rv.reviews.map(r=>{
@@ -714,14 +756,14 @@ $('#reviewList').onclick=async e=>{
     };
   }
 };
-$('#deptList').onclick=e=>{ const b=e.target.closest('.dept-row'); if(!b) return; A.dept=A.dept===b.dataset.dept?'':b.dataset.dept; A.page=1; $('#fDept').value=A.dept; loadAdmin(); $('#empPanel').scrollIntoView({behavior:'smooth',block:'start'}); };
+$('#deptList').onclick=e=>{ const b=e.target.closest('.dept-row'); if(!b) return; A.dept=A.dept===b.dataset.dept?'':b.dataset.dept; A.page=1; $('#fDept').value=A.dept; showAdminTab('emp'); loadAdmin(); $('#empPanel').scrollIntoView({behavior:'smooth',block:'start'}); };
 $('#fDept').onchange=e=>{ A.dept=e.target.value; A.page=1; loadAdmin() };
 $('#fStatus').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; A.status=b.dataset.st; A.page=1; loadAdmin() };
 $('#fchips').onclick=e=>{ const b=e.target.closest('[data-clear]'); if(!b) return; if(b.dataset.clear==='dept'){A.dept='';$('#fDept').value=''} else A.requestId=''; A.page=1; loadAdmin() };
 let qTimer; $('#fQ').oninput=e=>{ clearTimeout(qTimer); qTimer=setTimeout(()=>{ A.q=e.target.value.trim(); A.page=1; loadAdmin() },250) };
 $('#pgPrev').onclick=()=>{ A.page=Math.max(1,A.page-1); loadAdmin() };
 $('#pgNext').onclick=()=>{ A.page+=1; loadAdmin() };
-$('#reqRows').onclick=e=>{ const b=e.target.closest('.reqView'); if(!b) return; A.requestId=A.requestId==b.dataset.id?'':b.dataset.id; A.page=1; loadAdmin(); if(A.requestId) $('#empPanel').scrollIntoView({behavior:'smooth',block:'start'}) };
+$('#reqRows').onclick=e=>{ const b=e.target.closest('.reqView'); if(!b) return; A.requestId=A.requestId==b.dataset.id?'':b.dataset.id; A.page=1; if(A.requestId) showAdminTab('emp'); loadAdmin(); if(A.requestId) $('#empPanel').scrollIntoView({behavior:'smooth',block:'start'}) };
 $('#empRows').addEventListener('click',e=>{ const b=e.target.closest('.remindBtn'); if(b) sendReminder(b); });
 $('#mBody').addEventListener('click',e=>{ const b=e.target.closest('.remindBtn'); if(b) sendReminder(b); });
 $('#empRows').onclick=async e=>{
@@ -760,6 +802,7 @@ async function dispatchRequests(items, targetDept, sourceLabel){
   toast(`${label} ${r.requests[0].count}명에게 발송 완료 (${sourceLabel})`,'ok');
   showMailResult(box,r.mail);
   await loadAdmin();
+  showAdminTab('req');   // 방금 발송한 요청이 보이도록 '제출요청 발송 현황' 탭으로
   const row=$(`#reqRows tr[data-req="${r.requests[0].id}"]`); if(row) row.classList.add('flash');
   return r;
 }
@@ -782,11 +825,13 @@ $('#reqForm').onsubmit=async e=>{
 /* ---------- 공문(OCR) → 제출요청 ---------- */
 const CAT_OPTS=[['doc','요구자료 제출'],['edu','교육 수료증 제출'],['service','복무 누락 소명']];
 function renderRecords(){
-  $('#records').innerHTML=records.map((r,i)=>`<tr>
-    <td><input type="checkbox" checked data-r="${i}" aria-label="선택"></td>
-    <td><input class="field" style="margin:0;min-width:240px" value="${esc(r.title)}" data-title="${i}" placeholder="업무명을 입력하세요 (본문에서 찾지 못함)" aria-label="업무명"></td>
-    <td><select class="in" style="margin:0;width:auto;min-width:150px" data-cat="${i}" aria-label="자동분류(변경 가능)">${CAT_OPTS.map(([v,l])=>`<option value="${v}"${r.cat===v?' selected':''}>${l}</option>`).join('')}</select></td>
-    <td><input type="date" value="${esc(r.due)}" data-due="${i}" aria-label="마감일"></td><td>${esc(r.dept)}</td></tr>`).join('');
+  $('#records').innerHTML=records.map((r,i)=>`<div class="rec" data-rec="${i}">
+    <label class="rec-title"><input type="checkbox" checked data-r="${i}" aria-label="선택"><input class="field" value="${esc(r.title)}" data-title="${i}" placeholder="업무명을 입력하세요 (본문에서 찾지 못함)" aria-label="업무명"></label>
+    <div class="rec-grid">
+      <label>업무 유형(자동분류)<select class="in" data-cat="${i}" aria-label="자동분류(변경 가능)">${CAT_OPTS.map(([v,l])=>`<option value="${v}"${r.cat===v?' selected':''}>${l}</option>`).join('')}</select></label>
+      <label>마감일<input type="date" value="${esc(r.due)}" data-due="${i}" aria-label="마감일"></label>
+      <div>요청부서<b class="dept">${esc(r.dept)}</b></div>
+    </div></div>`).join('');
 }
 async function analyzeText(text){
   try{
@@ -799,7 +844,7 @@ async function analyzeText(text){
   catch(e){ toast('문서 분석 실패: '+e.message,'err'); }
 }
 $('#createBtn').onclick=async()=>{
-  $$('#records tr').forEach((row,i)=>{ const t=row.querySelector(`[data-title="${i}"]`), d=row.querySelector(`[data-due="${i}"]`), c=row.querySelector(`[data-cat="${i}"]`); if(t) records[i].title=t.value.trim(); if(d) records[i].due=d.value; if(c) records[i].cat=c.value; });
+  $$('#records .rec').forEach((row,i)=>{ const t=row.querySelector(`[data-title="${i}"]`), d=row.querySelector(`[data-due="${i}"]`), c=row.querySelector(`[data-cat="${i}"]`); if(t) records[i].title=t.value.trim(); if(d) records[i].due=d.value; if(c) records[i].cat=c.value; });
   const chosen=records.filter((_,i)=>$(`[data-r="${i}"]`)?.checked);
   if(!chosen.length) return toast('발송할 업무를 선택하세요.','err');
   if(chosen.some(r=>!r.title)) return toast('업무명이 비어 있는 항목이 있습니다. 업무명을 입력하세요.','err');
