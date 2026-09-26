@@ -442,11 +442,14 @@ const KPI_FILTERS={
   soon:{label:'긴급 · 주의', fn:t=>t.status!=='done'&&['urgent','warn'].includes(dueCls(t))},
   over:{label:'기한 초과', fn:t=>t.status!=='done'&&dueCls(t)==='over'},
   done:{label:'제출 완료', fn:t=>t.status==='done'},
+  resub:{label:'재제출 요청 받음', fn:t=>t.status!=='done'&&t.review?.state==='rejected'},
+  waiting:{label:'관리자 확인 중', fn:t=>t.status!=='done'&&t.review?.state==='pending'},
 };
 let kpiFilter='';   // '' = 필터 없음
 function setKpiFilter(k){ kpiFilter=(k&&k!==kpiFilter&&KPI_FILTERS[k])?k:''; renderCards(); }
 
 function renderKpi(){
+  if((kpiFilter==='resub'||kpiFilter==='waiting')&&!tasks.some(KPI_FILTERS[kpiFilter].fn)) kpiFilter='';
   const pend=tasks.filter(t=>t.status!=='done');
   const n=k=>tasks.filter(KPI_FILTERS[k].fn).length;
   const resub=pend.filter(t=>t.review?.state==='rejected'), waiting=pend.filter(t=>t.review?.state==='pending');
@@ -457,8 +460,8 @@ function renderKpi(){
     ['amber','긴급 · 주의',n('soon'),'마감 3일 이내','soon'],
     ['red','기한 초과',n('over'),'즉시 제출 필요','over'],
     ['green','제출 완료',n('done'),'제출완료 처리됨','done'],
-    ...(resub.length?[['red','재제출 요청 받음',resub.length,'수료증 다시 제출 필요']]:[]),
-    ...(waiting.length?[['','관리자 확인 중',waiting.length,'확인 후 제출 완료']]:[]),
+    ...(resub.length?[['red','재제출 요청 받음',resub.length,'수료증 다시 제출 필요','resub']]:[]),
+    ...(waiting.length?[['','관리자 확인 중',waiting.length,'확인 후 제출 완료','waiting']]:[]),
   ].map(([k,l,v,sub,f])=>`<div class="kpi ${k}${f?' clickable':''}${f&&f===kpiFilter?' active':''}"${f?` data-kpi="${f}" role="button" tabindex="0" aria-pressed="${f===kpiFilter}" title="${f===kpiFilter?'클릭하면 필터가 해제됩니다':`클릭하면 '${l}' 업무만 보여줍니다`}"`:''}><span>${l}</span><strong>${v}<small style="font-size:14px;font-weight:600"> 건</small></strong><small>${sub}</small>${f?'<em class="kpi-hint">✓ 필터 적용 중</em>':''}</div>`).join('');
 }
 $('#myKpi').addEventListener('click',e=>{ const c=e.target.closest('[data-kpi]'); if(c) setKpiFilter(c.dataset.kpi); });
