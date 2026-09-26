@@ -2,6 +2,7 @@ const express = require('express');
 const { reply } = require('../lib/chat');
 const { resolveEmp, tasksByEmp, addChatLog, chatHistory } = require('../lib/data');
 const { wrap } = require('../lib/http');
+const { scopedEmpNo } = require('../lib/session');
 
 const router = express.Router();
 
@@ -10,7 +11,7 @@ router.post('/', wrap(async (req, res) => {
   const question = String((req.body && req.body.question) || '').slice(0, 500);
   if (!question.trim()) return res.status(400).json({ error: 'question 이 필요합니다.' });
 
-  const emp = await resolveEmp(req.body && req.body.empNo);
+  const emp = await resolveEmp(scopedEmpNo(req, req.body && req.body.empNo));
   const answer = reply(question, await tasksByEmp(emp.empNo));
   await addChatLog(question, answer);
   res.json({ question, answer });

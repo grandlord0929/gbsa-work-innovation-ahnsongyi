@@ -14,8 +14,12 @@ const data = require('../lib/data');
 const seed = require('../lib/seedData');
 
 let fake; let server; let base;
+// 모든 API 는 사번 로그인(세션 쿠키)이 필요하므로 기본으로 홍길동(GBSA2026001) 세션을 실어 보낸다. opts.anon 이면 세션 없이 호출.
+const { signSession } = require('../lib/session');
+const SESSION = `gbsa_session=${encodeURIComponent(signSession({ empNo: 'GBSA2026001', name: '홍길동', dept: '바이오센터' }))}`;
 const api = async (path, opts = {}) => {
-  const res = await fetch(base + path, opts);
+  const { anon, ...init } = opts;
+  const res = await fetch(base + path, anon ? init : { ...init, headers: { Cookie: SESSION, ...(init.headers || {}) } });
   const text = await res.text();
   let body; try { body = JSON.parse(text); } catch { body = text; }
   return { status: res.status, body, headers: res.headers };
@@ -383,7 +387,7 @@ test('관리자 확인: 승인하면 제출완료, 이미지 열람 가능, 중�
   const sub = await confirmUpload('GBSA2026001', null);
   assert.equal(sub.status, 202);
   const item = (await api('/api/admin/reviews')).body.reviews[0];
-  const img = await fetch(base + '/api/admin/reviews/' + item.id + '/file');
+  const img = await fetch(base + '/api/admin/reviews/' + item.id + '/file', { headers: { Cookie: SESSION } });
   assert.equal(img.status, 200); assert.equal(img.headers.get('content-type'), 'image/png');
   const ok = await post('/api/admin/reviews/' + item.id + '/approve', {});
   assert.equal(ok.status, 200); assert.equal(ok.body.task.status, 'done');

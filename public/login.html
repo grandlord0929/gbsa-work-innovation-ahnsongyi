@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>로그인 · GBSA 지능형 통합 업무 리마인더</title>
+<style>
+:root{--navy:#1e3a8a;--navy2:#1e40af;--blue:#2563eb;--blue50:#eff6ff;--blue100:#dbeafe;--line:#e5e7eb;--text:#111827;--muted:#6b7280;--red:#dc2626;--red50:#fef2f2;--green:#059669;--green50:#ecfdf5}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:Pretendard,"Malgun Gothic",Arial,sans-serif;font-size:14px;line-height:1.5;color:var(--text);background:#f0f2f6;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}
+button,input{font:inherit}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+/* 브랜드 패널 */
+.hero{background:linear-gradient(160deg,#1e3a8a 0%,#1e40af 55%,#2563eb 100%);color:#fff;padding:56px 56px 40px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
+.hero::before,.hero::after{content:"";position:absolute;border-radius:50%;background:#ffffff12}
+.hero::before{width:420px;height:420px;right:-140px;top:-120px}.hero::after{width:300px;height:300px;left:-90px;bottom:-110px}
+.hero>*{position:relative}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:44px;height:44px;border-radius:12px;background:#fff;color:var(--navy);display:grid;place-items:center;font-weight:800;font-size:16px;letter-spacing:-.5px}
+.brand b{font-size:16px;display:block;line-height:1.3}.brand span{font-size:12.5px;color:#ffffffb8}
+.hero h1{font-size:2rem;line-height:1.3;margin:0 0 14px;letter-spacing:-.6px}
+.hero p{margin:0;color:#ffffffd0;max-width:440px}
+.points{list-style:none;margin:26px 0 0;padding:0;display:grid;gap:10px;font-size:13.5px}
+.points li{display:flex;gap:10px;align-items:center;color:#ffffffe6}.points i{width:26px;height:26px;border-radius:8px;background:#ffffff22;display:grid;place-items:center;font-style:normal;flex:none}
+.hero small{color:#ffffff96;font-size:11.5px}
+
+/* 로그인 카드 */
+.side{display:grid;place-items:center;padding:32px 20px}
+.card{width:min(420px,100%);background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 30px #1e3a8a14;padding:34px 32px 28px}
+.card h2{margin:0 0 4px;font-size:1.45rem;color:var(--navy);letter-spacing:-.4px}
+.card .lead{margin:0 0 22px;color:var(--muted);font-size:13.5px}
+label{display:block;font-size:12.5px;font-weight:700;color:#374151;margin-top:14px}
+.field{position:relative;margin-top:6px}
+.field input{width:100%;padding:11px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;font-size:14.5px}
+.field input:focus{border-color:var(--blue);outline:2px solid var(--blue100)}
+.field .eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--muted);padding:6px 8px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700}
+.field .eye:hover{background:#f3f4f6}
+.hint{margin-top:16px;padding:10px 12px;border-radius:8px;background:var(--blue50);border:1px solid var(--blue100);color:#1e40af;font-size:12.5px}
+.err{margin-top:14px;padding:10px 12px;border-radius:8px;background:var(--red50);border:1px solid #fecaca;color:#991b1b;font-size:13px;font-weight:600}
+.ok{margin-top:14px;padding:12px 14px;border-radius:8px;background:var(--green50);border:1px solid #a7f3d0;color:#065f46;font-size:14px;font-weight:700}
+button.go{width:100%;margin-top:18px;padding:12px;border:0;border-radius:8px;background:var(--navy);color:#fff;font-weight:700;font-size:15px;cursor:pointer;transition:.15s}
+button.go:hover:not(:disabled){background:var(--navy2)}button.go:disabled{opacity:.6;cursor:not-allowed}
+.foot{margin-top:18px;text-align:center;color:#9ca3af;font-size:11.5px}
+[hidden]{display:none!important}
+@media(max-width:860px){body{grid-template-columns:1fr}.hero{padding:26px 22px}.hero h1{font-size:1.4rem}.points,.hero p{display:none}.hero small{display:none}.side{align-items:start;padding:20px 14px}.card{padding:26px 20px}}
+</style>
+</head>
+<body>
+<section class="hero">
+  <div class="brand"><div class="logo">GB</div><div><b>경기도경제과학진흥원 GBSA</b><span>Gyeonggi Business &amp; Science Accelerator</span></div></div>
+  <div>
+    <h1>지능형 통합 업무<br>리마인더 시스템</h1>
+    <p>교육 수료증, 복무 누락 소명, 타 부서 요구자료까지 흩어진 행정 업무를 한 곳에서 확인하고 제출하세요.</p>
+    <ul class="points">
+      <li><i>🎓</i>수료증 OCR 자동 제출 · 본인 성명 검증</li>
+      <li><i>⏰</i>마감 임박·기한 초과 업무 실시간 알림</li>
+      <li><i>🛡️</i>사원 인증 후 본인 업무만 안전하게 조회</li>
+    </ul>
+  </div>
+  <small>AI 업무 혁신 해커톤 시연용 · 사원 DB: Supabase(PostgreSQL)</small>
+</section>
+
+<main class="side">
+  <form class="card" id="loginForm" novalidate>
+    <h2>로그인</h2>
+    <p class="lead">사번으로 로그인해 내 업무 현황을 확인하세요.</p>
+
+    <label for="empId">사번 (아이디)</label>
+    <div class="field"><input id="empId" name="id" autocomplete="username" inputmode="text" autocapitalize="characters" spellcheck="false" placeholder="예: GBSA2018012" maxlength="40" autofocus required></div>
+
+    <label for="empPw">비밀번호</label>
+    <div class="field"><input id="empPw" name="password" type="password" autocomplete="current-password" placeholder="사번과 동일" maxlength="40" required><button type="button" class="eye" id="eye" aria-label="비밀번호 표시">보기</button></div>
+
+    <div class="hint">※ 초기 비밀번호는 본인의 사번과 동일합니다.</div>
+    <div id="err" class="err" role="alert" hidden></div>
+    <div id="ok" class="ok" role="status" hidden></div>
+    <button class="go" id="go" type="submit">로그인</button>
+    <div class="foot">ⓒ 경기도경제과학진흥원</div>
+  </form>
+</main>
+
+<script>
+const $=s=>document.querySelector(s);
+const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
+const ss={get:k=>{try{return sessionStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{sessionStorage.setItem(k,v)}catch(e){}},del:k=>{try{sessionStorage.removeItem(k)}catch(e){}}};
+
+const goHome=()=>{ const next=ss.get('gbsa.next')||'/'; ss.del('gbsa.next'); location.replace(/^\/(#\w*)?$/.test(next)?next:'/'); };
+const saveUser=u=>store.set('gbsa.user',JSON.stringify(u));
+
+async function readJson(res){ const raw=await res.text(); try{return JSON.parse(raw)}catch(e){return {error:res.status===401?'접근 암호가 필요합니다. 브라우저의 인증 창에 아이디/암호를 입력해 주세요.':(raw.replace(/\s+/g,' ').trim().slice(0,120)||'서버 응답을 읽을 수 없습니다.')}} }
+
+// 이미 로그인된 브라우저(유효한 세션 쿠키)면 바로 메인으로
+(async()=>{
+  try{ const r=await fetch('/api/auth/me'); if(r.ok){ const j=await r.json(); saveUser(j.user); goHome(); } }catch(e){}
+})();
+
+$('#eye').onclick=()=>{ const p=$('#empPw'), show=p.type==='password'; p.type=show?'text':'password'; $('#eye').textContent=show?'숨김':'보기'; };
+const showErr=m=>{ $('#err').textContent=m; $('#err').hidden=!m; };
+
+$('#loginForm').addEventListener('submit',async e=>{
+  e.preventDefault(); showErr(''); $('#ok').hidden=true;
+  const id=$('#empId').value.trim(), password=$('#empPw').value.trim();
+  if(!id||!password){ showErr('사번(아이디)과 비밀번호를 입력해 주세요.'); (id?$('#empPw'):$('#empId')).focus(); return; }
+  const btn=$('#go'); btn.disabled=true; btn.textContent='확인 중...';
+  try{
+    const res=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,password})});
+    const data=await readJson(res);
+    if(!res.ok){ showErr(data.error||'로그인에 실패했습니다.'); btn.disabled=false; btn.textContent='로그인'; $('#empPw').select(); return; }
+    saveUser(data.user); ss.set('gbsa.welcome',data.user.name);
+    $('#ok').textContent=`${data.user.name} 님 환영합니다`; $('#ok').hidden=false; btn.textContent='이동 중...';
+    setTimeout(goHome,900);
+  }catch(err){
+    showErr('서버에 연결하지 못했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.'); btn.disabled=false; btn.textContent='로그인';
+  }
+});
+</script>
+</body>
+</html>

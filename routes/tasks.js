@@ -10,6 +10,7 @@ const { isValidDate } = require('../lib/time');
 const { wrap } = require('../lib/http');
 const { formatMethod, EXT_BY_MIME } = require('../lib/review');
 const { saveCertFile } = require('../lib/storage');
+const { adminOnly, isAdmin, scopedEmpNo } = require('../lib/session');
 
 const router = express.Router();
 
@@ -40,19 +41,23 @@ const fileInfo = (file) => (file ? { fixedName: fixName(file.originalname) } : n
 
 // GET /api/tasks?empNo=&cat=&status=  — 해당 사원의 업무 체크리스트
 router.get('/', wrap(async (req, res) => {
-  const emp = await resolveEmp(req.query.empNo);
+  const emp = await resolveEmp(scopedEmpNo(req, req.query.empNo)); // 미지정이면 로그인 사원으로 매핑
   res.json(await tasksByEmp(emp.empNo, { cat: req.query.cat, status: req.query.status }));
 }));
+
+// 본인 업무가 아니면(관리자 제외) 접근 불가
+const ownTask = (req, task) => { if (!isAdmin(req.session) && task.emp_no !== req.session.empNo) throw httpError(403, '본인의 업무만 조회/제출할 수 있습니다.'); };
 
 router.get('/:id', wrap(async (req, res) => {
   const task = await getTask(req.params.id);
   if (!task) return res.status(404).json({ error: 'task not found' });
+  ownTask(req, task);
   res.json(task);
 }));
 
 // POST /api/tasks/bulk — 부서(또는 전체) 사원 전원에게 새 제출요청을 배포한다. 사원별로 업무 1행씩 생성.
 //   { tasks: [{ title, cat, due(YYYY-MM-DD), targetDept('전체'|부서명), dept?(요청부서), raw? }, ...] }
-router.post('/bulk', wrap(async (req, res) => {
+router.post('/bulk', adminOnly, wrap(async (req, res) => {
   const list = (req.body && req.body.tasks) || [];
   if (!Array.isArray(list) || list.length === 0) return res.status(400).json({ error: 'tasks 배열이 필요합니다.' });
   if (list.length > 20) return res.status(400).json({ error: '한 번에 최대 20건까지 발송할 수 있습니다.' });
@@ -74,7 +79,7 @@ router.post('/bulk', wrap(async (req, res) => {
 // 업무 매칭이 모호하면 422 + candidates, 프론트가 taskId 를 지정해 다시 호출한다.
 router.post('/cert-upload', upload.single('file'), wrap(async (req, res) => {
   const body = req.body || {};
-  const emp = await resolveEmp(clean(body.empNo, 30));
+  const emp = await resolveEmp(scopedEmpNo(req, clean(body.empNo, 30)));
   const cert = certFromBody(body);
   const file = fileInfo(req.file);
   const fileName = file ? file.fixedName : clean(body.fileName) || '';
@@ -151,7 +156,7 @@ router.post('/cert-upload', upload.single('file'), wrap(async (req, res) => {
 }));
 
 // PATCH /api/tasks/:id  { title?, dept?, assignee?, due?, status?, cat? } - 기한 연기 등 수정
-router.patch('/:id', wrap(async (req, res) => {
+router.patch('/:id', adminOnly, wrap(async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isFinite(id) || !(await getTask(id))) return res.status(404).json({ error: 'task not found' });
 
@@ -191,6 +196,7 @@ const NO_CERT = { course_name: null, issuer: null, completed_date: null, ocr_tex
 router.post('/:id/submit', upload.single('file'), wrap(async (req, res) => {
   const task = await getTask(req.params.id);
   if (!task) return res.status(404).json({ error: 'task not found' });
+  ownTask(req, task);
   if (task.status === 'done') return res.json(task);
 
   if (task.cat === 'edu' && process.env.ALLOW_MANUAL_EDU_SUBMIT !== 'true') {
@@ -203,7 +209,7 @@ router.post('/:id/submit', upload.single('file'), wrap(async (req, res) => {
   res.json(await getTask(task.id));
 }));
 
-router.delete('/:id', wrap(async (req, res) => {
+router.delete('/:id', adminOnly, wrap(async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isFinite(id) || !(await deleteTask(id))) return res.status(404).json({ error: 'task not found' });
   res.status(204).end();

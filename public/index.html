@@ -28,6 +28,7 @@ button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer;bo
 .who .nm{font-size:13.5px;font-weight:700;color:var(--navy)}.who .dp{font-size:12px;color:#4b5563}
 .who select{width:100%;background:#fff;color:var(--text);border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:13px}
 .side-foot{margin-top:auto;font-size:11.5px;color:#9ca3af;line-height:1.6}
+.topbar{display:flex;justify-content:flex-end;align-items:center;gap:12px;padding:10px 32px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}.who-inline{font-size:13px;display:flex;gap:8px;align-items:baseline}.who-inline b{color:var(--navy)}
 .content{min-width:0;display:flex;flex-direction:column}.content>main,.content>section{flex:1}
 
 .container{width:100%;max-width:1320px;margin:0 auto;padding:30px 32px 10px}
@@ -72,7 +73,7 @@ h1{font-size:1.8rem;font-weight:700;color:var(--navy);margin:0 0 4px;letter-spac
 @keyframes pulse{50%{transform:scale(1.08)}}
 
 /* chat */
-.chat{padding:0;overflow:hidden;position:sticky;top:20px;height:calc(100vh - 40px);min-height:520px;max-height:700px;display:flex;flex-direction:column}
+.chat{padding:0;overflow:hidden;position:sticky;top:64px;height:calc(100vh - 84px);min-height:520px;max-height:700px;display:flex;flex-direction:column}
 .chat-head{background:var(--navy);color:#fff;padding:14px 16px}.chat-head .sub{font-size:12px;color:#ffffffa6}
 .chat-tools{padding:10px 14px 0}.messages{padding:14px;overflow:auto;flex:1}
 .msg{background:var(--blue50);border-radius:12px;padding:9px 12px;margin-bottom:9px;font-size:13px;line-height:1.55;word-break:break-word}.msg.user{background:var(--blue);color:#fff;margin-left:34px}
@@ -154,6 +155,7 @@ footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
 @media(max-width:860px){.app{grid-template-columns:1fr}.sidebar{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:14px}.mode-tabs{grid-template-columns:1fr 1fr}.side-foot,.side-hr{display:none}}
 @media(max-width:700px){.mode-tabs button{justify-content:center}.container{padding:18px 14px 6px}.frow{grid-template-columns:1fr}}
 </style>
+<script>try{ if(!localStorage.getItem("gbsa.user")){ sessionStorage.setItem("gbsa.next",location.pathname+location.hash); location.replace("/login"); } }catch(e){}</script>
 </head>
 <body>
 <div class="app">
@@ -169,11 +171,12 @@ footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
   <div class="who">
     <div class="side-label">접속자 프로필</div>
     <div class="profile"><div class="avatar" id="meAvatar">-</div><div><div class="nm" id="meName">불러오는 중</div><div class="dp" id="meDept"></div></div></div>
-    <select id="meSelect" title="로그인 사원 전환 (시연용)" aria-label="로그인 사원 전환"></select>
+    <button class="btn sm" id="logoutBtnSide" type="button">로그아웃</button>
   </div>
   <div class="side-foot">AI 업무혁신 해커톤 시연용<br>데이터: Supabase(PostgreSQL) · 백엔드 API 연동</div>
 </aside>
 <div class="content">
+<div class="topbar"><span class="who-inline">👤 <b id="topName">-</b><span id="topDept" class="muted"></span></span><button class="btn sm" id="logoutBtn" type="button">로그아웃</button></div>
 
 <!-- ============ 직원 모드 ============ -->
 <main id="employeeView" class="container">
@@ -313,6 +316,11 @@ const LS={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:
 
 let me=null, employees=[], mode='employee', tasks=[], records=[], depts=[];
 
+// 세션이 없거나 만료되면 저장된 사용자 정보를 지우고 로그인 페이지로 (돌아올 위치 기억)
+let redirecting=false;
+function toLogin(){ if(redirecting) return; redirecting=true; LS.del('gbsa.user'); try{ sessionStorage.setItem('gbsa.next',location.pathname+location.hash); }catch(e){} location.replace('/login'); }
+async function logout(){ try{ await fetch(API+'/api/auth/logout',{method:'POST'}); }catch(e){} markSeen(); LS.del('gbsa.user'); LS.del('gbsa.mode'); location.replace('/login'); }
+
 async function api(path, opts={}){
   const res = await fetch(API+path, {
     headers: opts.body && !(opts.body instanceof FormData) ? {'Content-Type':'application/json'} : undefined,
@@ -323,6 +331,7 @@ async function api(path, opts={}){
     const raw = await res.text(); let data;
     try{ data = JSON.parse(raw); }catch(e){ data = { error: raw.replace(/\s+/g,' ').trim().slice(0,160) }; }
     const where = `요청 실패 (${res.status}) ${path.split('?')[0]}`;
+    if(res.status===401 && data.code==='LOGIN_REQUIRED'){ toLogin(); throw Object.assign(new Error('로그인이 필요합니다.'),{status:401,data}); }
     if(res.status===401){   // 브라우저가 인증 창을 띄우지 않은 경우를 대비해 로그인 경로로 세션당 1회 이동
       try{ if(!sessionStorage.getItem('gbsa.loginTried')){ sessionStorage.setItem('gbsa.loginTried','1'); location.href='/api/login'; } }catch(e){}
     }
@@ -399,23 +408,12 @@ function renderMe(){
   const admin = mode==='admin';
   $('#meAvatar').textContent = admin ? '관' : (me?me.name[0]:'-');
   $('#meName').textContent = admin ? '관리자' : (me?me.name:'-');
-  $('#meDept').textContent = admin ? '총무인사팀 · 관리자 권한' : (me?`${me.dept} · ${me.empNo}`:'');
-  $('#meSelect').hidden = admin;
+  $('#meDept').textContent = admin ? `${me?me.name+' · ':''}관리자 화면` : (me?`${me.dept} · ${me.empNo}`:'');
+  $('#topName').textContent = me ? me.name : '-';
+  $('#topDept').textContent = me ? `${me.dept}${me.position?' · '+me.position:''} (${me.empNo})` : '';
   const g=$('#greetName'); if(g) g.textContent = me ? `${me.dept} ${me.name}` : '직원';
 }
-function buildMeSelect(){
-  const byDept={}; employees.forEach(e=>(byDept[e.dept]??=[]).push(e));
-  $('#meSelect').innerHTML = Object.keys(byDept).sort((a,b)=>byDept[b].length-byDept[a].length||a.localeCompare(b,'ko')).map(d=>
-    `<optgroup label="${esc(d)}">${byDept[d].map(e=>`<option value="${esc(e.empNo)}">${esc(e.name)} (${esc(e.empNo)})</option>`).join('')}</optgroup>`).join('');
-  $('#meSelect').value = me.empNo;
-}
-$('#meSelect').onchange=async e=>{
-  const next=employees.find(x=>x.empNo===e.target.value); if(!next) return;
-  markSeen(); me=next; LS.set('gbsa.empNo',me.empNo); renderMe();
-  seen=null; announced.clear();
-  $('#messages').innerHTML=''; welcome(); tasks=[]; await loadTasks();
-  toast(`${me.name}(${me.dept}) 사원으로 전환했습니다.`);
-};
+$('#logoutBtn').onclick=$('#logoutBtnSide').onclick=logout;
 function welcome(){ addMsg(`${esc(me.name)}님, 안녕하세요. <b>${esc(me.dept)}</b> 소속 업무 현황을 사원 DB 기준으로 불러왔습니다.`) }
 
 /* ---------- 직원 모드: 내 체크리스트 ---------- */
@@ -1143,17 +1141,21 @@ $$('.resetDemoBtn').forEach(b=>b.onclick=async()=>{
 /* ---------- 초기화 ---------- */
 async function init(){
   try{
+    const who=(await api('/api/auth/me')).user;   // 세션 쿠키로 확인한 로그인 사원 (없으면 api() 가 로그인 페이지로 보냄)
+    me=who; LS.set('gbsa.user',JSON.stringify(who));
     const r=await api('/api/employees'); // { success, employees:[{사번,사원명,부서명}] }
     employees=r.employees.map(x=>({empNo:String(x.사번),name:x.사원명,dept:x.부서명}));
-    const saved=LS.get('gbsa.empNo');
-    me=employees.find(e=>e.empNo===saved)||await api('/api/me');
-    buildMeSelect(); renderMe(); welcome();
+    renderMe(); welcome();
+    let w=null; try{ w=sessionStorage.getItem('gbsa.welcome'); sessionStorage.removeItem('gbsa.welcome'); }catch(e){}
+    if(w) toast(`${w} 님 환영합니다`,'ok');
   }catch(e){
+    if(e.status===401) return;   // 로그인 페이지로 이동 중
     $('#empError').hidden=false; $('#empError').textContent='사원 DB(Supabase)를 불러오지 못했습니다: '+e.message;
     $('#meName').textContent='사원 DB 오류'; $('#cards').innerHTML='';
     return;
   }
-  setMode(location.hash==='#admin'||LS.get('gbsa.mode')==='admin'&&location.hash!=='#employee'?'admin':'employee');
+  if(!me.isAdmin){ $('#tabAdmin').hidden=true; LS.del('gbsa.mode'); }   // ADMIN_EMP_NOS 로 제한된 환경에서 일반 사원은 관리자 모드 숨김
+  setMode(me.isAdmin&&(location.hash==='#admin'||LS.get('gbsa.mode')==='admin'&&location.hash!=='#employee')?'admin':'employee');
   // 두 화면을 다른 탭/창에서 동시에 띄워도 10초마다 자동 갱신된다
   setInterval(()=>{ if(document.hidden) return; mode==='admin'?loadAdmin({quiet:true}):loadTasks({quiet:true}); },10000);
 }

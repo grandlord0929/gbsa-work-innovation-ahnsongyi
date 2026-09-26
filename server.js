@@ -6,8 +6,9 @@ const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const { basicAuth, securityHeaders, assertProductionSafe } = require('./lib/security');
-const { listEmployees, getDefaultUser } = require('./lib/data');
+const { listEmployees, getEmployee } = require('./lib/data');
 const { wrap } = require('./lib/http');
+const { sessionGuard, adminOnly } = require('./lib/session');
 
 // 운영 환경에서 접근 암호 없이 공개되는 것을 차단. 직접 실행(로컬/Render)이면 메시지만 출력하고 종료,
 // Vercel 에서는 예외가 진입점(lib/handler.js)으로 전달되어 오류 응답으로 노출된다.
@@ -34,6 +35,9 @@ if (process.env.BASIC_AUTH_PASS) {
   app.use(basicAuth({ user: process.env.BASIC_AUTH_USER || 'gbsa', pass: process.env.BASIC_AUTH_PASS }));
 }
 app.use(express.json({ limit: '5mb' }));
+// 사번 로그인 세션: 공개 경로(/api/health, /api/auth/login 등)를 뺀 모든 /api/* 는 로그인(쿠키)이 필요하다.
+app.use(sessionGuard);
+app.use('/api/auth', require('./routes/auth'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true, service: 'gbsa-reminder-backend' }));
 
@@ -59,22 +63,22 @@ app.get('/api/employees/search', wrap(async (req, res) => {
   res.json({ success: true, count: data.length, employees: data });
 }));
 
-// 3. 직원 모드 로그인 사원 (안송이 → 홍길동 → 바이오센터 첫 사원 → 첫 사원, DEMO_USER_EMPNO 로 지정 가능)
+// 3. 직원 모드 로그인 사원 = 사번 로그인한 사원(세션). 세션 사원이 DB 에 없으면(재시드 등) 기본 사원으로 대체하지 않고 401.
 app.get('/api/me', wrap(async (req, res) => {
-  const me = await getDefaultUser();
-  if (!me) return res.status(404).json({ error: '사원 DB가 비어 있습니다. `npm run seed` 로 초기 데이터를 넣어 주세요.' });
+  const me = await getEmployee(req.session.empNo);
+  if (!me) return res.status(401).json({ error: '로그인이 필요합니다.', code: 'LOGIN_REQUIRED' });
   res.json(me);
 }));
 
-app.use('/api/admin', require('./routes/admin'));
+app.use('/api/admin', adminOnly, require('./routes/admin'));
 app.use('/api/tasks', tasksRouter);
-app.use('/api/analyze', analyzeRouter);
-app.use('/api/stats', statsRouter);
+app.use('/api/analyze', adminOnly, analyzeRouter);
+app.use('/api/stats', adminOnly, statsRouter);
 app.use('/api/chat', chatRouter);
-app.use('/api/demo', require('./routes/demo'));
+app.use('/api/demo', adminOnly, require('./routes/demo'));
 
 // 프론트엔드(public/index.html)를 같은 서버에서 정적으로 서빙 (Vercel 에서는 CDN 이 직접 서빙)
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] })); // /login → login.html
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not Found' }));
 
