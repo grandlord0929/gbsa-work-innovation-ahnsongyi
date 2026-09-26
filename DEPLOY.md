@@ -57,6 +57,8 @@ git push -u origin main
 | `SUPABASE_KEY` | Supabase **service_role** 키 |
 | `BASIC_AUTH_PASS` | 긴 랜덤 문자열 (**없으면 함수가 기동을 거부**하고 `/api` 가 500 + 안내 메시지) |
 | `BASIC_AUTH_USER` | `gbsa` (선택) |
+| `RESEND_API_KEY` / `SENDER_EMAIL` / `REMINDER_TEST_RECIPIENTS` | 제출 요청 이메일용(선택). 없으면 [제출 요청] 버튼이 안내 오류만 표시. 수신 주소는 시연용 1~3개(무료 플랜은 가입 이메일만 가능) |
+| `APP_URL` | 메일 버튼이 여는 Vercel 배포 주소(선택, 비우면 자동) |
 
 환경변수를 추가/변경한 뒤에는 **재배포(Redeploy)** 해야 반영됩니다. Framework Preset 은 **Other**, Node 버전은 `package.json` 의 `engines`(24.x)를 따릅니다.
 

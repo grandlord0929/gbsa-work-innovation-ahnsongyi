@@ -58,6 +58,7 @@ h1{font-size:1.8rem;font-weight:700;color:var(--navy);margin:0 0 4px;letter-spac
 .kpi.active{border-color:var(--navy);background:var(--blue50);box-shadow:0 0 0 2px var(--navy),0 6px 16px #1e3a8a26}
 .kpi.active:hover{border-color:var(--navy);box-shadow:0 0 0 2px var(--navy),0 6px 16px #1e3a8a26}
 .kpi .kpi-hint{display:block;margin-top:6px;font-size:11px;font-weight:700;color:var(--navy);opacity:0}.kpi.active .kpi-hint{opacity:1}
+.rowbtns{display:flex;gap:6px;flex-wrap:nowrap}
 .filterbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:-4px 0 12px;padding:8px 12px;border-radius:8px;background:var(--blue50);border:1px solid var(--blue100);color:var(--navy);font-size:13px;font-weight:600}
 .filterbar .btn{margin-left:auto}
 
@@ -607,6 +608,30 @@ function renderOverview(ov){
     <td><div class="mini"><div class="pbar"><i class="${lvl(r.rate)}" style="width:${r.rate}%"></i></div><span>${r.done}/${r.total}</span></div></td>
     <td><button class="btn sm reqView" data-id="${r.id}">${A.requestId==r.id?'필터 해제':'보기'}</button></td></tr>`).join('') || '<tr><td colspan="6" class="muted">발송된 제출요청이 없습니다.</td></tr>';
 }
+/* ---------- 제출 요청 이메일 (관리자) ---------- */
+const RM={sending:new Set(),sent:{}};   // 발송 중인 키 / 최근 발송 시각(60초간 재요청 방지 표시)
+const rmKey=(emp,task)=>emp+(task?'#'+task:'');
+function remindBtn(emp,task,label='📧 제출 요청'){
+  const k=rmKey(emp,task), t=RM.sent[k];
+  if(RM.sending.has(k)) return `<button class="btn sm remindBtn" data-remind="${esc(emp)}"${task?` data-task="${task}"`:''} disabled>발송 중...</button>`;
+  if(t&&Date.now()-t.at<60000) return `<button class="btn sm remindBtn" data-remind="${esc(emp)}"${task?` data-task="${task}"`:''} disabled title="같은 사원에게는 1분 뒤 다시 보낼 수 있습니다">✓ 발송됨 ${esc(t.hm)}</button>`;
+  return `<button class="btn sm remindBtn" data-remind="${esc(emp)}"${task?` data-task="${task}"`:''} title="지정된 테스트 이메일로 제출 안내문을 발송합니다">${label}</button>`;
+}
+async function sendReminder(btn){
+  const emp=btn.dataset.remind, task=btn.dataset.task||'', k=rmKey(emp,task);
+  if(RM.sending.has(k)) return;               // 중복 클릭 방지
+  const orig=btn.textContent; RM.sending.add(k); btn.disabled=true; btn.textContent='발송 중...';
+  try{
+    const r=await api('/api/admin/send-reminder',{method:'POST',body:JSON.stringify({empNo:emp,taskId:task||undefined})});
+    RM.sent[k]={at:Date.now(),hm:r.sentAt.slice(11,16)};
+    toast(`📧 실제 이메일로 안내문이 발송되었습니다. (${r.taskCount}건 · ${r.sentAt.slice(11,16)})`,'ok');
+    btn.textContent='✓ 발송됨 '+r.sentAt.slice(11,16);
+    setTimeout(()=>{ delete RM.sent[k]; if(btn.isConnected){ btn.disabled=false; btn.textContent=orig; } },60000);
+  }catch(err){
+    toast('이메일 발송 실패: '+err.message,'err'); btn.disabled=false; btn.textContent=orig;
+  }finally{ RM.sending.delete(k); }
+}
+
 function renderEmployees(list){
   const s=list.summary;
   $('#fStatus').innerHTML=[['all','전체',s.all],['pending','미제출',s.pending+s.overdue],['overdue','기한초과',s.overdue],['done','제출완료',s.done]]
@@ -622,7 +647,7 @@ function renderEmployees(list){
       <td>${esc(e.empNo)}</td><td><b>${esc(e.name)}</b>${me&&e.empNo===me.empNo?' <span class="badge b-new" style="animation:none">로그인 중</span>':''}</td><td>${esc(e.dept)}</td>
       <td>${e.total?`<div class="mini"><div class="pbar"><i class="${lvl(rate)}" style="width:${rate}%"></i></div><span>${e.done}/${e.total}</span></div>`:'<span class="muted">-</span>'}</td>
       <td><span class="badge ${cls}">${label}</span></td><td>${esc(shortTime(e.lastSubmittedAt))}</td>
-      <td><button class="btn sm empView" data-emp="${esc(e.empNo)}">상세</button></td></tr>`;
+      <td><div class="rowbtns"><button class="btn sm empView" data-emp="${esc(e.empNo)}">상세</button>${e.state==='pending'||e.state==='overdue'?remindBtn(e.empNo,''):''}</div></td></tr>`;
   }).join('') || '<tr><td colspan="7" class="muted" style="text-align:center;padding:26px">조건에 맞는 사원이 없습니다.</td></tr>';
   const pages=Math.max(1,Math.ceil(list.total/list.pageSize)); A.page=Math.min(A.page,pages);
   const from=list.total?(list.page-1)*list.pageSize+1:0;
@@ -701,6 +726,8 @@ let qTimer; $('#fQ').oninput=e=>{ clearTimeout(qTimer); qTimer=setTimeout(()=>{ 
 $('#pgPrev').onclick=()=>{ A.page=Math.max(1,A.page-1); loadAdmin() };
 $('#pgNext').onclick=()=>{ A.page+=1; loadAdmin() };
 $('#reqRows').onclick=e=>{ const b=e.target.closest('.reqView'); if(!b) return; A.requestId=A.requestId==b.dataset.id?'':b.dataset.id; A.page=1; loadAdmin(); if(A.requestId) $('#empPanel').scrollIntoView({behavior:'smooth',block:'start'}) };
+$('#empRows').addEventListener('click',e=>{ const b=e.target.closest('.remindBtn'); if(b) sendReminder(b); });
+$('#mBody').addEventListener('click',e=>{ const b=e.target.closest('.remindBtn'); if(b) sendReminder(b); });
 $('#empRows').onclick=async e=>{
   const b=e.target.closest('.empView'); if(!b) return;
   const cells=b.closest('tr').children;
@@ -708,8 +735,8 @@ $('#empRows').onclick=async e=>{
     const list=await api('/api/tasks?empNo='+encodeURIComponent(b.dataset.emp));
     openModal(`${cells[1].textContent.replace('로그인 중','').trim()} · ${cells[2].textContent} (${b.dataset.emp})`,
       `<div class="muted" style="margin-bottom:12px">제출 ${list.filter(t=>t.status==='done').length} / 요청 ${list.length}건</div>`+
-      (list.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>업무명</th><th>마감일</th><th>상태</th></tr></thead><tbody>${list.map(t=>
-        `<tr><td style="white-space:normal;min-width:220px">${esc(t.title)}<div class="muted">${catLabel(t.cat)}</div>${t.status==='done'?certLine(t.cert,t.review?.state==='approved'):''}</td><td>${esc(t.due)}</td><td>${badge(t)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">할당된 업무가 없습니다.</div>'));
+      (list.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>업무명</th><th>마감일</th><th>상태</th><th></th></tr></thead><tbody>${list.map(t=>
+        `<tr><td style="white-space:normal;min-width:220px">${esc(t.title)}<div class="muted">${catLabel(t.cat)}</div>${t.status==='done'?certLine(t.cert,t.review?.state==='approved'):''}</td><td>${esc(t.due)}</td><td>${badge(t)}</td><td>${t.status!=='done'&&t.review?.state!=='pending'?remindBtn(b.dataset.emp,t.id,'📧 요청'):''}</td></tr>`).join('')}</tbody></table></div>`:'<div class="muted">할당된 업무가 없습니다.</div>'));
   }catch(err){ toast('상세 조회 실패: '+err.message,'err'); }
 };
 

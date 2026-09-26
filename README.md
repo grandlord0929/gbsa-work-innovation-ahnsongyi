@@ -32,6 +32,11 @@ npm install
 - `/api/health`, `/api/auth/login|logout` 을 제외한 모든 `/api/*` 는 로그인이 필요합니다(401 `LOGIN_REQUIRED`). 사번을 생략한 `/api/tasks`, `/api/chat`, 수료증 업로드는 로그인 사원으로 자동 매핑됩니다.
 - 관리자 모드는 소속 부서가 **기획조정실 또는 인사총무팀**인 사원만 사용할 수 있습니다(`ADMIN_DEPTS` 로 변경 가능). 그 외 부서는 관리자 탭이 숨겨지고, `#admin` 직접 접근은 안내 후 메인으로 이동하며, 관리자 API 는 403(`ADMIN_ONLY`)입니다. 일반 사원은 본인 업무만 조회/제출할 수 있습니다.
 
+### 제출 요청 이메일 (관리자 모드)
+- 관리자 현황판의 사원 행 [📧 제출 요청](또는 상세 모달의 업무별 [📧 요청])을 누르면 `POST /api/admin/send-reminder { empNo, taskId? }` 로 안내 메일이 발송됩니다. 성명·부서·업무명·마감일은 클라이언트 값이 아니라 DB 기준으로 채웁니다(관리자 확인 대기 중인 업무는 제외).
+- Resend REST API(HTTPS 443)를 사용하며 환경변수 `RESEND_API_KEY`, `SENDER_EMAIL`, `REMINDER_TEST_RECIPIENTS`(시연용 1~3개, 이 주소로만 발송), 선택 `APP_URL` 이 필요합니다. 설정이 없으면 503 안내가 나오고 다른 기능은 영향이 없습니다.
+- 발송 이력은 응답의 `sentAt`과 `reminder_logs` 테이블에 남습니다(테이블은 `supabase/schema.sql` 을 다시 실행하면 생기며, 없어도 발송은 동작). 같은 사원에게는 60초 안에 다시 보낼 수 없습니다.
+
 npm run seed             # seed-data/*.csv(백업 데이터)로 사원 19명·업무 106건·제출 이력 34건을 통째로 교체 (멱등)
 npm run seed -- --synthetic   # 이전 방식: 가상 사원 200명 + 기본 업무 801건 (사원은 upsert)
 npm run dev              # http://localhost:4000

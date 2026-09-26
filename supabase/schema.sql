@@ -65,6 +65,18 @@ create table if not exists public.chat_logs (
   created_at timestamptz not null default now()
 );
 
+-- 제출 요청 이메일 발송 이력 (관리자 모드 [제출 요청] 버튼). 없어도 앱은 동작하며(이력만 저장 안 됨), 만들면 발송 이력이 남는다.
+create table if not exists public.reminder_logs (
+  id          bigint generated always as identity primary key,
+  emp_no      text not null references public.employees (emp_no) on delete cascade,
+  subject     text not null,
+  task_count  integer not null default 1,
+  provider_id text,
+  sent_by     text,
+  sent_at     timestamptz not null default now()
+);
+create index if not exists idx_reminder_logs_emp on public.reminder_logs (emp_no);
+
 -- 보안: 모든 테이블에 RLS 를 켜고 정책을 만들지 않는다.
 --  → anon / authenticated 키로는 어떤 데이터도 읽거나 쓸 수 없고,
 --    서버(백엔드)가 사용하는 service_role 키만 접근할 수 있다. (service_role 은 RLS 를 우회)
@@ -73,5 +85,6 @@ alter table public.requests    enable row level security;
 alter table public.tasks       enable row level security;
 alter table public.submissions enable row level security;
 alter table public.chat_logs   enable row level security;
+alter table public.reminder_logs enable row level security;
 
-revoke all on public.employees, public.requests, public.tasks, public.submissions, public.chat_logs from anon, authenticated;
+revoke all on public.employees, public.requests, public.tasks, public.submissions, public.chat_logs, public.reminder_logs from anon, authenticated;

@@ -13,8 +13,9 @@ const SCHEMA = {
                  fks: [['emp_no', 'employees', 'emp_no'], ['request_id', 'requests', 'id']] },
   submissions: { id: true, required: ['task_id'], fks: [['task_id', 'tasks', 'id']] },
   chat_logs:   { id: true, required: ['question', 'answer'] },
+  reminder_logs: { id: true, required: ['emp_no', 'subject'], fks: [['emp_no', 'employees', 'emp_no']] },
 };
-const CASCADES = [['employees', 'emp_no', 'tasks', 'emp_no'], ['requests', 'id', 'tasks', 'request_id'], ['tasks', 'id', 'submissions', 'task_id']];
+const CASCADES = [['employees', 'emp_no', 'tasks', 'emp_no'], ['employees', 'emp_no', 'reminder_logs', 'emp_no'], ['requests', 'id', 'tasks', 'request_id'], ['tasks', 'id', 'submissions', 'task_id']];
 
 function createFakeSupabase() {
   const tables = Object.fromEntries(Object.keys(SCHEMA).map((t) => [t, []]));

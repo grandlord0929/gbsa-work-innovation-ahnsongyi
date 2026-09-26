@@ -1,13 +1,15 @@
 // 관리자 화면용 집계 API. 사원/부서 목록은 employees 테이블, 제출 현황은 tasks(사원별 행)에서 실시간 집계한다.
 // PostgREST 는 GROUP BY 를 지원하지 않으므로 필요한 최소 컬럼만 읽어 서버에서 집계한다.
 const express = require('express');
-const { listEmployees, listDepartments, allTaskFacts, recentRequests, listPendingReviews, pendingReviewCount, resubmitRequestCount, getSubmission, decideReview } = require('../lib/data');
+const { getEmployee, tasksByEmp, listEmployees, listDepartments, allTaskFacts, recentRequests, listPendingReviews, pendingReviewCount, resubmitRequestCount, getSubmission, decideReview } = require('../lib/data');
 const CertExtract = require('../public/certExtract');
 const { parseMethod, MIME_BY_EXT } = require('../lib/review');
 const { readCertFile } = require('../lib/storage');
 const { httpError } = require('../lib/supabaseClient');
-const { todayStr, fmtKst } = require('../lib/time');
+const { todayStr, fmtKst, diffDays } = require('../lib/time');
 const { wrap } = require('../lib/http');
+const mailer = require('../lib/mailer');
+const { logReminder } = require('../lib/reminderLog');
 
 const router = express.Router();
 
@@ -167,5 +169,44 @@ router.post('/reviews/:id/reject', wrap(async (req, res) => {
   res.json({ ok: true, task: r.task });
 }));
 
+// ---- 제출 요청 이메일 ----
+// POST /api/admin/send-reminder { empNo, taskId? } — 해당 사원의 미제출 업무(taskId 지정 시 그 업무만)를 안내하는 이메일을 발송한다.
+//   내용(성명/부서/업무명/마감일)은 클라이언트가 보낸 값이 아니라 DB 기준으로 만든다(변조·HTML 삽입 방지).
+//   수신처는 사원 메일이 아니라 REMINDER_TEST_RECIPIENTS(시연용 1~3개)뿐이다. 같은 사원에게는 60초 안에 다시 보내지 않는다.
+const lastSent = new Map();
+const COOLDOWN_MS = 60 * 1000;
+
+router.get('/reminder-status', (req, res) => res.json(mailer.status()));
+
+router.post('/send-reminder', wrap(async (req, res) => {
+  const b = req.body || {};
+  const empNo = String(b.empNo || '').trim();
+  const emp = empNo && (await getEmployee(empNo));
+  if (!emp) throw httpError(404, '사원을 찾을 수 없습니다.');
+  const st = mailer.status();
+  if (!st.configured) throw Object.assign(httpError(503, `이메일 발송 설정이 없습니다. 환경변수 ${st.missing.join(', ')} 을(를) 설정하세요.`), { code: 'EMAIL_NOT_CONFIGURED' });
+
+  const wait = COOLDOWN_MS - (Date.now() - (lastSent.get(empNo) || 0));
+  if (wait > 0) throw Object.assign(httpError(429, `${emp.name} 님께는 방금 안내를 보냈습니다. ${Math.ceil(wait / 1000)}초 후 다시 시도하세요.`), { code: 'TOO_SOON' });
+
+  // 미제출 = 제출완료가 아니고, 관리자 확인 대기(이미 제출해 검토 중)가 아닌 업무. 재제출 요청 건은 포함.
+  let pending = (await tasksByEmp(empNo)).filter((t) => t.status !== 'done' && t.review?.state !== 'pending');
+  if (b.taskId != null && b.taskId !== '') pending = pending.filter((t) => t.id === Number(b.taskId));
+  if (pending.length === 0) throw Object.assign(httpError(409, `${emp.name} 님의 안내할 미제출 업무가 없습니다.`), { code: 'NOTHING_PENDING' });
+  pending.sort((a, c) => a.due.localeCompare(c.due) || a.id - c.id);
+
+  const today = todayStr();
+  const tasks = pending.map((t) => ({ title: t.title, due: t.due, dday: diffDays(today, t.due) }));
+  const url = mailer.appUrl(req);
+  const mail = mailer.buildReminderEmail({ name: emp.name, dept: emp.dept, empNo: emp.empNo, tasks, url: url ? `${url}/` : '' });
+  const sent = await mailer.sendMail(mail);
+
+  lastSent.set(empNo, Date.now());
+  const sentAt = fmtKst(new Date());
+  const log = await logReminder({ empNo, subject: mail.subject, taskCount: tasks.length, providerId: sent.id, sentBy: req.session && req.session.empNo });
+  res.json({ ok: true, sentAt, subject: mail.subject, taskCount: tasks.length, to: sent.to, messageId: sent.id, logged: log.persisted });
+}));
+
 module.exports = router;
 module.exports.overview = overview;
+module.exports.__resetReminderCooldown = () => lastSent.clear();
