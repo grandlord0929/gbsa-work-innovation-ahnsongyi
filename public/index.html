@@ -5,66 +5,74 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>GBSA 지능형 통합 업무 리마인더 시스템</title>
 <style>
-:root{--navy:#0b2a5b;--navy2:#123a75;--blue:#2563eb;--blue50:#eff6ff;--blue100:#dbeafe;--bg:#f4f7fb;--card:#fff;--line:#e3e8f0;--text:#0f1b33;--muted:#64748b;--red:#dc2626;--red50:#fef2f2;--amber:#b45309;--amber50:#fffbeb;--green:#059669;--green50:#ecfdf5;--shadow:0 1px 2px #0b2a5b0d,0 4px 14px #0b2a5b0a}
+:root{--navy:#1e3a8a;--navy2:#1e40af;--blue:#2563eb;--blue50:#eff6ff;--blue100:#dbeafe;--bg:#f9fafb;--side:#f0f2f6;--card:#fff;--line:#e5e7eb;--text:#111827;--muted:#6b7280;--red:#dc2626;--red50:#fef2f2;--amber:#b45309;--amber50:#fffbeb;--green:#059669;--green50:#ecfdf5;--shadow:0 1px 3px #0000000d}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Pretendard,"Malgun Gothic",Arial,sans-serif;font-size:14px;line-height:1.5}
 button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer;border:0}button:disabled{opacity:.55;cursor:not-allowed}
 :focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .muted{color:var(--muted);font-size:13px}.hidden,[hidden]{display:none!important}
 
-/* header */
-.header{background:var(--navy);color:#fff;padding:0 24px;height:64px;display:flex;align-items:center;gap:20px;position:sticky;top:0;z-index:20;box-shadow:0 2px 10px #0b2a5b33}
-.brand{display:flex;align-items:center;gap:12px;min-width:0}.logo{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);display:grid;place-items:center;font-weight:800;letter-spacing:-.5px;flex:none}
-.brand b{font-size:15px;white-space:nowrap}.brand .sub{font-size:11.5px;color:#ffffffa6;margin-top:1px;white-space:nowrap}
-.mode-tabs{display:flex;background:#ffffff1a;border-radius:10px;padding:3px;margin:0 auto}
-.mode-tabs button{background:transparent;color:#ffffffe0;padding:8px 18px;border-radius:8px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:7px;transition:.15s}
-.mode-tabs button[aria-selected=true]{background:#fff;color:var(--navy);box-shadow:0 1px 4px #0003}
-.who{display:flex;align-items:center;gap:10px;min-width:0}.avatar{width:34px;height:34px;border-radius:50%;background:#3b82f6;display:grid;place-items:center;font-weight:800;flex:none}
-.who .nm{font-size:13px;font-weight:700;white-space:nowrap}.who .dp{font-size:11.5px;color:#ffffffa6;white-space:nowrap}
-.who select{background:#ffffff1a;color:#fff;border:1px solid #ffffff33;border-radius:8px;padding:6px 8px;font-size:12px;max-width:150px}.who select option,.who select optgroup{color:#111}
+/* app shell: sidebar + content (design ref: final_project_backup Streamlit layout) */
+.app{display:grid;grid-template-columns:288px minmax(0,1fr);min-height:100vh}
+.sidebar{background:var(--side);border-right:1px solid var(--line);padding:24px 18px;position:sticky;top:0;height:100vh;overflow:auto;display:flex;flex-direction:column;gap:14px}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}.logo{width:38px;height:38px;border-radius:10px;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:800;letter-spacing:-.5px;flex:none}
+.brand b{font-size:15px;color:var(--navy);line-height:1.3;display:block}.brand .sub{font-size:12px;color:var(--muted);margin-top:2px}
+.side-hr{border:0;border-top:1px solid #d9dde5;margin:2px 0;width:100%}
+.side-label{font-size:12.5px;font-weight:700;color:#374151}
+.mode-tabs{display:grid;gap:6px}
+.mode-tabs button{background:#fff;color:#374151;padding:10px 12px;border-radius:8px;font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:8px;text-align:left;border:1px solid var(--line);transition:.15s}
+.mode-tabs button:hover{border-color:#9ca3af}
+.mode-tabs button[aria-selected=true]{background:var(--navy);color:#fff;border-color:var(--navy);box-shadow:0 1px 4px #1e3a8a40}
+.who{display:grid;gap:10px;min-width:0}
+.profile{display:flex;align-items:center;gap:10px;background:var(--blue50);border:1px solid var(--blue100);border-radius:10px;padding:12px}
+.avatar{width:36px;height:36px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
+.who .nm{font-size:13.5px;font-weight:700;color:var(--navy)}.who .dp{font-size:12px;color:#4b5563}
+.who select{width:100%;background:#fff;color:var(--text);border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:13px}
+.side-foot{margin-top:auto;font-size:11.5px;color:#9ca3af;line-height:1.6}
+.content{min-width:0;display:flex;flex-direction:column}.content>main,.content>section{flex:1}
 
-.container{max-width:1440px;margin:auto;padding:26px 24px 10px}
+.container{width:100%;max-width:1320px;margin:0 auto;padding:30px 32px 10px}
 .pagehead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:18px}
-h1{font-size:22px;margin:0 0 4px;letter-spacing:-.4px}h2{font-size:15px;margin:0;letter-spacing:-.2px}
+h1{font-size:1.8rem;font-weight:700;color:var(--navy);margin:0 0 4px;letter-spacing:-.4px}.sub-header{font-size:.95rem;color:#4b5563;margin:0 0 8px}h2{font-size:15px;margin:0;color:#111827;letter-spacing:-.2px}
 .actions-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 
 /* buttons */
-.btn{padding:9px 14px;border-radius:9px;font-weight:700;font-size:13px;border:1px solid var(--line);background:#fff;color:#334155;transition:.12s}
+.btn{padding:9px 14px;border-radius:8px;font-weight:700;font-size:13px;border:1px solid var(--line);background:#fff;color:#334155;transition:.12s}
 .btn:hover:not(:disabled){background:#f8fafc;border-color:#cbd5e1}
 .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}.btn.primary:hover:not(:disabled){background:#1d4ed8}
 .btn.success{background:var(--green);border-color:var(--green);color:#fff}.btn.sm{padding:6px 10px;font-size:12px}
-.demo-btn{background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;padding:10px 13px;border-radius:9px;font-size:12.5px;font-weight:700;box-shadow:0 2px 8px #2563eb44;width:100%}
+.demo-btn{background:var(--navy);color:#fff;padding:10px 13px;border-radius:8px;font-size:12.5px;font-weight:700;width:100%}.demo-btn:hover:not(:disabled){background:var(--navy2)}
 .demo-btn.block{margin-top:12px}
 
 /* cards & panels */
-.panel,.card,.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+.panel,.card,.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
 .panel{padding:20px}.panel+.panel{margin-top:16px}
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}
-.kpi{padding:16px 18px;position:relative;overflow:hidden}.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--blue)}
-.kpi.red::before{background:var(--red)}.kpi.amber::before{background:#f59e0b}.kpi.green::before{background:var(--green)}
-.kpi span{color:var(--muted);font-size:12.5px;font-weight:600}.kpi strong{display:block;font-size:26px;margin-top:2px;letter-spacing:-.5px}.kpi small{color:var(--muted);font-size:12px}
+.kpi{padding:16px;text-align:center}
+.kpi span{display:block;color:var(--muted);font-size:.85rem;font-weight:600;margin-bottom:4px}.kpi strong{display:block;font-size:1.6rem;font-weight:800;color:#1f2937;letter-spacing:-.5px}.kpi small{display:block;color:#9ca3af;font-size:.78rem;margin-top:4px}
+.kpi.red strong{color:#dc2626}.kpi.amber strong{color:#d97706}.kpi.green strong{color:#059669}
 
 .grid{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:22px;align-items:start}
-.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
-.tab{padding:8px 13px;border:1px solid var(--line);background:#fff;border-radius:999px;color:#475569;font-size:13px;font-weight:600}
-.tab.active{background:var(--navy);border-color:var(--navy);color:#fff}.tab .n{opacity:.7;margin-left:3px;font-weight:500}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:16px;border-bottom:1px solid var(--line)}
+.tab{padding:10px 14px;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;background:transparent;color:#4b5563;font-size:13.5px;font-weight:600}
+.tab:hover{color:var(--navy)}.tab.active{border-bottom-color:var(--navy);color:var(--navy)}.tab .n{margin-left:6px;font-size:11.5px;font-weight:700;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:999px}.tab.active .n{background:var(--blue100);color:var(--navy)}
 .cards{display:grid;gap:12px}
-.card{padding:18px 20px;border-left:4px solid #94a3b8;transition:.15s}
+.card{padding:14px 18px;border-left:4px solid #94a3b8;transition:.15s}
 .card.over{border-left-color:var(--red)}.card.urgent{border-left-color:#ef4444}.card.warn{border-left-color:#f59e0b}.card.normal{border-left-color:var(--blue)}.card.done{border-left-color:var(--green);background:#fcfffd}
 .card.flash{animation:flash 2s ease}@keyframes flash{0%,60%{box-shadow:0 0 0 3px #10b98166}100%{box-shadow:var(--shadow)}}
-.card-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.chip{font-size:11.5px;font-weight:700;color:#475569;background:#f1f5f9;padding:3px 9px;border-radius:6px}
-.card h3{margin:8px 0 4px;font-size:15.5px;letter-spacing:-.3px}.card .meta{color:var(--muted);font-size:12.5px}
+.card-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.chip{font-size:11.5px;font-weight:700;color:var(--navy);background:var(--blue50);padding:3px 9px;border-radius:6px}
+.card h3{margin:8px 0 4px;font-size:1.05rem;font-weight:700;color:#111827;letter-spacing:-.3px}.card .meta{color:var(--muted);font-size:12.5px}
 .card .actions{margin-top:14px;display:flex;gap:8px}
 .cert-info{margin-top:10px;font-size:12px;color:#065f46;background:var(--green50);border-radius:8px;padding:8px 10px;line-height:1.6}
 
 /* D-day badges */
-.badge{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap}
-.b-over{background:#7f1d1d;color:#fff}.b-urgent{background:var(--red50);color:var(--red);box-shadow:inset 0 0 0 1px #fecaca}
-.b-warn{background:var(--amber50);color:var(--amber);box-shadow:inset 0 0 0 1px #fde68a}.b-normal{background:var(--blue50);color:#1d4ed8;box-shadow:inset 0 0 0 1px var(--blue100)}
-.b-done{background:var(--green50);color:#047857;box-shadow:inset 0 0 0 1px #a7f3d0}.b-none{background:#f1f5f9;color:#64748b}.b-new{background:var(--blue);color:#fff;animation:pulse 1.6s ease 3}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:.8rem;font-weight:600;padding:3px 8px;border-radius:6px;white-space:nowrap}
+.b-over{background:#7f1d1d;color:#fff}.b-urgent{background:#fee2e2;color:#991b1b}
+.b-warn{background:#fef3c7;color:#92400e}.b-normal{background:var(--blue50);color:#1d4ed8}
+.b-done{background:#d1fae5;color:#065f46}.b-none{background:#f1f5f9;color:#64748b}.b-new{background:var(--blue);color:#fff;animation:pulse 1.6s ease 3}
 @keyframes pulse{50%{transform:scale(1.08)}}
 
 /* chat */
-.chat{padding:0;overflow:hidden;position:sticky;top:82px;height:calc(100vh - 110px);min-height:520px;max-height:700px;display:flex;flex-direction:column}
+.chat{padding:0;overflow:hidden;position:sticky;top:20px;height:calc(100vh - 40px);min-height:520px;max-height:700px;display:flex;flex-direction:column}
 .chat-head{background:var(--navy);color:#fff;padding:14px 16px}.chat-head .sub{font-size:12px;color:#ffffffa6}
 .chat-tools{padding:10px 14px 0}.messages{padding:14px;overflow:auto;flex:1}
 .msg{background:var(--blue50);border-radius:12px;padding:9px 12px;margin-bottom:9px;font-size:13px;line-height:1.55;word-break:break-word}.msg.user{background:var(--blue);color:#fff;margin-left:34px}
@@ -85,9 +93,9 @@ h1{font-size:22px;margin:0 0 4px;letter-spacing:-.4px}h2{font-size:15px;margin:0
 .fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.fbox{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff;min-height:62px}
 .fbox span{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}.fbox b{font-size:13px;word-break:break-word}.fbox.ok{border-color:#a7f3d0;background:#f0fdf9}.fbox.miss b{color:var(--amber)}
 .cand{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}.cand-note{margin-top:12px;font-size:12px;color:var(--amber)}
-.name-badge{margin-top:12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:10px 14px;border-radius:10px;font-weight:800;font-size:14px;border:1px solid}.name-badge small{font-weight:600;font-size:12px;opacity:.85}
-.name-badge.ok{background:var(--green50);color:#047857;border-color:#a7f3d0}.name-badge.bad{background:var(--red50);color:#b91c1c;border-color:#fecaca}.name-badge.warn{background:var(--amber50);color:var(--amber);border-color:#fde68a}
-.b-review{background:#eef2ff;color:#4338ca;box-shadow:inset 0 0 0 1px #c7d2fe}.b-resub{background:var(--red50);color:var(--red);box-shadow:inset 0 0 0 1px #fecaca}
+.name-badge{margin-top:12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:12px 16px;border-radius:10px;font-weight:700;font-size:14px;border:1px solid;border-left-width:4px}.name-badge small{font-weight:600;font-size:12px;opacity:.85}
+.name-badge.ok{background:#ecfdf5;color:#065f46;border-color:#6ee7b7}.name-badge.bad{background:#fef2f2;color:#991b1b;border-color:#fca5a5}.name-badge.warn{background:#fffbeb;color:#92400e;border-color:#fcd34d}
+.b-review{background:#eef2ff;color:#4338ca}.b-resub{background:#fee2e2;color:#991b1b}
 .resub-banner{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:0 0 14px;padding:12px 16px;border-radius:12px;background:var(--red50);border:1px solid #fecaca;color:#991b1b;font-size:13px}.resub-banner b{font-size:14.5px}.resub-banner span{flex:1;min-width:200px}
 .review-box{margin-top:12px;padding:12px 14px;border-radius:10px;font-size:13px;line-height:1.6}
 .review-box.pending{background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3}.review-box.rejected{background:var(--red50);border:1px solid #fecaca;color:#991b1b}.review-box.done{background:var(--green50);border:1px solid #a7f3d0;color:#065f46}
@@ -142,28 +150,35 @@ details.panel summary{cursor:pointer;font-weight:800;font-size:15px}
 @keyframes tin{from{opacity:0;transform:translateY(8px)}}
 footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
 
-@media(max-width:1000px){.grid,.two{grid-template-columns:1fr}.chat{position:static;height:560px}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ocr-grid,.fields{grid-template-columns:1fr}.brand .sub{display:none}}
-@media(max-width:700px){.header{height:auto;flex-wrap:wrap;padding:10px 14px;gap:10px}.mode-tabs{order:3;width:100%;margin:0}.mode-tabs button{flex:1;justify-content:center}.container{padding:18px 14px 6px}.frow{grid-template-columns:1fr}.who .dp{display:none}}
+@media(max-width:1000px){.grid,.two{grid-template-columns:1fr}.chat{position:static;height:560px}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ocr-grid,.fields{grid-template-columns:1fr}}
+@media(max-width:860px){.app{grid-template-columns:1fr}.sidebar{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:14px}.mode-tabs{grid-template-columns:1fr 1fr}.side-foot,.side-hr{display:none}}
+@media(max-width:700px){.mode-tabs button{justify-content:center}.container{padding:18px 14px 6px}.frow{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<header class="header">
-  <div class="brand"><div class="logo">GB</div><div><b>경기도경제과학진흥원 GBSA</b><div class="sub">지능형 통합 업무 리마인더 지원 시스템</div></div></div>
+<div class="app">
+<aside class="sidebar">
+  <div class="brand"><div class="logo">GB</div><div><b>경기도경제과학진흥원 GBSA</b><div class="sub">지능형 통합 업무 리마인더</div></div></div>
+  <hr class="side-hr">
+  <div class="side-label">📌 시스템 운영 모드 선택</div>
   <div class="mode-tabs" role="tablist" aria-label="화면 모드">
     <button id="tabEmployee" role="tab" aria-selected="true">👤 직원 모드</button>
-    <button id="tabAdmin" role="tab" aria-selected="false">🛠 관리자 모드</button>
+    <button id="tabAdmin" role="tab" aria-selected="false">🛡️ 관리자 모드</button>
   </div>
+  <hr class="side-hr">
   <div class="who">
-    <div class="avatar" id="meAvatar">-</div>
-    <div><div class="nm" id="meName">불러오는 중</div><div class="dp" id="meDept"></div></div>
+    <div class="side-label">접속자 프로필</div>
+    <div class="profile"><div class="avatar" id="meAvatar">-</div><div><div class="nm" id="meName">불러오는 중</div><div class="dp" id="meDept"></div></div></div>
     <select id="meSelect" title="로그인 사원 전환 (시연용)" aria-label="로그인 사원 전환"></select>
   </div>
-</header>
+  <div class="side-foot">AI 업무혁신 해커톤 시연용<br>데이터: Supabase(PostgreSQL) · 백엔드 API 연동</div>
+</aside>
+<div class="content">
 
 <!-- ============ 직원 모드 ============ -->
 <main id="employeeView" class="container">
   <div class="pagehead">
-    <div><h1>내 행정 업무 체크리스트</h1><div class="live" id="syncStatus"><i></i><span>서버 연결 확인 중...</span></div></div>
+    <div><h1>👋 안녕하세요, <span id="greetName">직원</span> 님!</h1><div class="sub-header">오늘 확인 및 조치가 필요한 GBSA 통합 업무 리마인더 현황입니다.</div><div class="live" id="syncStatus"><i></i><span>서버 연결 확인 중...</span></div></div>
     <div class="actions-row"><button class="btn resetDemoBtn" title="시연 데이터를 처음 상태로 되돌립니다">↺ 시연 데이터 초기화</button></div>
   </div>
   <div id="empError" class="banner" hidden></div>
@@ -173,9 +188,9 @@ footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
     <section>
       <div class="tabs" id="catTabs">
         <button class="tab active" data-filter="all">전체<span class="n" id="cnt-all">0</span></button>
-        <button class="tab" data-filter="service">복무 누락 소명<span class="n" id="cnt-service">0</span></button>
-        <button class="tab" data-filter="edu">교육 수료증 제출<span class="n" id="cnt-edu">0</span></button>
-        <button class="tab" data-filter="doc">요구자료 제출<span class="n" id="cnt-doc">0</span></button>
+        <button class="tab" data-filter="service">⏰ 복무 누락 소명<span class="n" id="cnt-service">0</span></button>
+        <button class="tab" data-filter="edu">🎓 교육 수료증 제출<span class="n" id="cnt-edu">0</span></button>
+        <button class="tab" data-filter="doc">📋 요구자료 제출<span class="n" id="cnt-doc">0</span></button>
       </div>
       <div id="cards" class="cards"><div class="muted">불러오는 중...</div></div>
 
@@ -212,7 +227,7 @@ footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
 <!-- ============ 관리자 모드 ============ -->
 <section id="adminView" class="container" hidden>
   <div class="pagehead">
-    <div><h1>관리자 대시보드</h1><div class="live" id="adminLive"><i></i><span>불러오는 중...</span></div></div>
+    <div><h1>🛡️ GBSA 전사 지능형 업무 리마인더 총괄 관리</h1><div class="sub-header">부서별 제출 현황 및 수료증 확인 실시간 관제 대시보드</div><div class="live" id="adminLive"><i></i><span>불러오는 중...</span></div></div>
     <div class="actions-row"><button class="btn" id="adminRefresh">⟳ 새로고침</button><button class="btn resetDemoBtn" title="시연 데이터를 처음 상태로 되돌립니다">↺ 시연 데이터 초기화</button></div>
   </div>
   <div id="adminError" class="banner" hidden></div>
@@ -279,9 +294,10 @@ footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
   </details>
 </section>
 
+<footer>ⓒ 경기도경제과학진흥원 · AI 업무 혁신 해커톤 시연용 (사원 DB: Supabase(PostgreSQL) · 백엔드 API 연동)</footer>
+</div></div>
 <div id="toasts" aria-live="polite"></div>
 <div id="overlay" class="overlay" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle"><div class="modal-h"><h2 id="mTitle"></h2><button class="x" id="mClose" aria-label="닫기">×</button></div><div class="modal-b" id="mBody"></div></div></div>
-<footer>ⓒ 경기도경제과학진흥원 · AI 업무 혁신 해커톤 시연용 (사원 DB: Supabase(PostgreSQL) · 백엔드 API 연동)</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
@@ -385,6 +401,7 @@ function renderMe(){
   $('#meName').textContent = admin ? '관리자' : (me?me.name:'-');
   $('#meDept').textContent = admin ? '총무인사팀 · 관리자 권한' : (me?`${me.dept} · ${me.empNo}`:'');
   $('#meSelect').hidden = admin;
+  const g=$('#greetName'); if(g) g.textContent = me ? `${me.dept} ${me.name}` : '직원';
 }
 function buildMeSelect(){
   const byDept={}; employees.forEach(e=>(byDept[e.dept]??=[]).push(e));
