@@ -1,0 +1,31 @@
+﻿task_id,doc_no,audit_type,task_title,requesting_dept,target_dept,assignee_name,due_date,submission_status,progress_status,supplement_count,supplement_reason,urgency_level,form_url,last_submitted_at,audit_approved
+REQ-2026-001,DOC-AUDIT-2026-0001,경영기획/행정점검,2027년도 주요업무계획 수립 부서별 신규사업 수요조사,기획조정실,AI산업팀,안송이,2026-09-30,미제출,보완요청(수정중),1,사업비 정산 영수증 중 불명확 영수증 1건 소명자료 보완 요청,여유,https://portal.gbsa.or.kr/forms/req_business_plan_2027.xlsx,2026-09-20 17:00:00,보완필요
+REQ-2026-002,DOC-AUDIT-2026-0002,재정회계점검,2026년 3분기 예산집행 실적 및 4분기 불용예상액 점검표,예산팀,AI산업팀,안송이,2026-09-25,제출완료,최종제출완료,0,해당없음,주의(D-3이내),https://portal.gbsa.or.kr/forms/req_budget_q3_check.xlsx,2026-09-24 15:30:00,승인
+REQ-2026-003,DOC-AUDIT-2026-0003,하반기 자체 일상감사,2026년도 하반기 자체 일상감사 이행결과표 제출,감사실,기획조정실,김민준,2026-09-15,기한초과,기한초과(미제출),0,기한 초과로 감사부서 즉시 제출 독려 중,기한초과,https://portal.gbsa.or.kr/forms/req_audit_2026_h2.xlsx,,미승인
+REQ-2026-004,DOC-AUDIT-2026-0004,공공기관 경영평가 실사,2026년도 공공기관 고객만족도(PCSI) 조사용 고객명부 취합,기획조정실,수출지원팀,조유진,2026-09-22,미제출,작성중,0,해당없음,긴급(D-1이내),https://portal.gbsa.or.kr/forms/req_pcsi_customer_list.xlsx,,미승인
+REQ-2026-005,DOC-AUDIT-2026-0005,정보보안 실태점검,정품 소프트웨어(SW) 라이선스 정기 실태점검표,정보화추진팀,인사총무팀,이서연,2026-09-20,제출완료,최종제출완료,0,해당없음,긴급(D-1이내),https://portal.gbsa.or.kr/forms/req_sw_license_audit.xlsx,2026-09-17 15:30:00,승인
+REQ-2026-006,DOC-AUDIT-2026-0006,정보보안 실태점검,3분기 부서별 보안점검 및 대외비 비밀문서 실태조사표,정보화추진팀,디지털전환팀,박지훈,2026-09-28,미제출,보완요청(수정중),1,필수 첨부문서인 부서장 날인 결재문서(PDF) 누락,보통(D-7이내),https://portal.gbsa.or.kr/forms/req_sec_audit_q3.xlsx,2026-09-20 17:00:00,보완필요
+REQ-2026-007,DOC-AUDIT-2026-0007,환경경영점검,2026년 공공기관 온실가스 감축 및 에너지 절약 이행실적표,안전시설팀,바이오신약지원팀,강하늘,2026-09-18,기한초과,기한초과(미제출),0,기한 초과로 감사부서 즉시 제출 독려 중,기한초과,https://portal.gbsa.or.kr/forms/req_energy_saving_2026.xlsx,,미승인
+REQ-2026-008,DOC-AUDIT-2026-0008,경기도의회 행정사무감사,경기도의회 행정사무감사 대비 사전 요구자료 1차 취합,기획조정실,스타트업성장지원팀,윤태오,2026-10-10,미제출,작성중,0,해당없음,여유,https://portal.gbsa.or.kr/forms/req_council_audit_part1.xlsx,,미승인
+REQ-2026-009,DOC-AUDIT-2026-0009,재정회계점검,2026년 하반기 주요 물품·비품 전수조사 실사결과서,재무관리팀,예산팀,최수진,2026-09-26,제출완료,최종제출완료,0,해당없음,보통(D-7이내),https://portal.gbsa.or.kr/forms/req_asset_inventory_2026.xlsx,2026-09-24 15:30:00,승인
+REQ-2026-010,DOC-AUDIT-2026-0010,데이터품질진단,부서별 공공데이터 개방 및 데이터 품질 진단표,정보화추진팀,AI산업팀,도경수,2026-10-05,미제출,미착수,0,해당없음,여유,https://portal.gbsa.or.kr/forms/req_opendata_quality.xlsx,,미승인
+REQ-2026-011,DOC-AUDIT-2026-0011,공공기관 경영평가 실사,2026년 상반기 성과평가(MBO) 부서별 지표 실적 증빙자료,인사총무팀,정보화추진팀,정우성,2026-09-24,제출완료,최종제출완료,0,해당없음,주의(D-3이내),https://portal.gbsa.or.kr/forms/req_mbo_performance_h1.xlsx,2026-09-23 15:30:00,승인
+REQ-2026-012,DOC-AUDIT-2026-0012,산업안전보건점검,산업안전보건 위험성평가 부서별 유해위험요인 파악표,안전시설팀,북부권역센터,송중기,2026-09-29,미제출,검토대기,0,해당없음,보통(D-7이내),https://portal.gbsa.or.kr/forms/req_risk_assessment_2026.xlsx,2026-09-21 11:20:00,검토대기
+REQ-2026-013,DOC-AUDIT-2026-0013,기업지원실태점검,도내 R&D 지원기업 애로사항 실태조사 취합표,미래전략실,바이오신약지원팀,강하늘,2026-09-16,기한초과,기한초과(미제출),0,기한 초과로 감사부서 즉시 제출 독려 중,기한초과,https://portal.gbsa.or.kr/forms/req_rnd_survey_2026.xlsx,,미승인
+REQ-2026-014,DOC-AUDIT-2026-0014,수출지원성과점검,해외전시회 참가기업 성과추적 조사결과표,글로벌성장처,수출지원팀,조유진,2026-10-02,미제출,미착수,0,해당없음,여유,https://portal.gbsa.or.kr/forms/req_export_expo_result.xlsx,,미승인
+REQ-2026-015,DOC-AUDIT-2026-0015,창업벤처육성점검,창업보육센터 입주기업 고용 및 매출 실적조사서,창업육성팀,창업육성팀,문채원,2026-09-25,제출완료,최종제출완료,0,해당없음,주의(D-3이내),https://portal.gbsa.or.kr/forms/req_bi_tenant_status.xlsx,2026-09-23 15:30:00,승인
+REQ-2026-016,DOC-AUDIT-2026-0016,경제동향점검,통상규제 피해 중소기업 모니터링 현황표,미래전략실,미래전략실,유연석,2026-10-08,미제출,검토대기,0,해당없음,여유,https://portal.gbsa.or.kr/forms/req_trade_monitoring.xlsx,2026-09-21 11:20:00,검토대기
+REQ-2026-017,DOC-AUDIT-2026-0017,경영혁신과제,부서별 생성형 AI 실무 도입 아이디어 제안서,미래전략실,ICT융합팀,신민아,2026-09-30,미제출,미착수,0,해당없음,여유,https://portal.gbsa.or.kr/forms/req_genai_proposal.xlsx,,미승인
+REQ-2026-018,DOC-AUDIT-2026-0018,하반기 자체 일상감사,부서별 연구용역 사후관리 및 평가결과서,기획조정실,AI산업팀,안송이,2026-09-17,기한초과,기한초과(미제출),0,기한 초과로 감사부서 즉시 제출 독려 중,기한초과,https://portal.gbsa.or.kr/forms/req_research_eval.xlsx,,미승인
+REQ-2026-019,DOC-AUDIT-2026-0019,경기도 종합감사,2026 하반기 위탁사업 정산검사 대상목록표,감사실,스타트업성장지원팀,윤태오,2026-09-23,제출완료,최종제출완료,0,해당없음,긴급(D-1이내),https://portal.gbsa.or.kr/forms/req_settlement_audit.xlsx,2026-09-20 15:30:00,승인
+REQ-2026-020,DOC-AUDIT-2026-0020,지식재산관리점검,2026년도 직무발명 보상금 지급대상 검토서,인사총무팀,디지털전환팀,박지훈,2026-10-15,미제출,미착수,0,해당없음,여유,https://portal.gbsa.or.kr/forms/req_invention_reward.xlsx,,미승인
+REQ-2026-021,DOC-AUDIT-2026-0021,경기도의회 행정사무감사,도내 북부 권역 특화산업 활성화 추진 실적표,기획조정실,북부권역센터,송중기,2026-10-12,미제출,검토대기,0,해당없음,여유,https://portal.gbsa.or.kr/forms/req_north_region_perf.xlsx,2026-09-21 11:20:00,검토대기
+REQ-2026-022,DOC-AUDIT-2026-0022,정보보안 실태점검,클라우드 서비스 이용 현황 및 보안인증 확인서,정보화추진팀,AI산업팀,도경수,2026-09-27,미제출,미착수,0,해당없음,보통(D-7이내),https://portal.gbsa.or.kr/forms/req_cloud_security_check.xlsx,,미승인
+REQ-2026-023,DOC-AUDIT-2026-0023,경기도의회 행정사무감사,경기도 청년창업펀드 투자기업 후속연계 현황,창업육성팀,스타트업성장지원팀,윤태오,2026-10-08,미제출,검토대기,0,해당없음,여유,https://portal.gbsa.or.kr/forms/req_youth_fund_followup.xlsx,2026-09-21 11:20:00,검토대기
+REQ-2026-024,DOC-AUDIT-2026-0024,하반기 자체 일상감사,인사위원회 심의안건 사전 자체감사 의견서,감사실,인사총무팀,이서연,2026-09-21,제출완료,최종제출완료,0,해당없음,긴급(D-1이내),https://portal.gbsa.or.kr/forms/req_hr_audit_opinion.xlsx,2026-09-20 14:00:00,승인
+REQ-2026-025,DOC-AUDIT-2026-0025,재정회계점검,공용차량 운행일지 및 유류비 정산 검증표,재무관리팀,안전시설팀,배수지,2026-09-29,미제출,미착수,0,해당없음,보통(D-7이내),https://portal.gbsa.or.kr/forms/req_vehicle_log_check.xlsx,,미승인
+REQ-2026-026,DOC-AUDIT-2026-0026,수출지원성과점검,글로벌 비즈니스 매칭 수출상담회 바이어 검증 목록,글로벌성장처,글로벌성장처,임시완,2026-10-01,미제출,미착수,0,해당없음,여유,https://portal.gbsa.or.kr/forms/req_global_buyer_verify.xlsx,,미승인
+REQ-2026-027,DOC-AUDIT-2026-0027,경기도 종합감사,첨단 바이오 실증장비 가동률 및 유지보수 이력표,안전시설팀,바이오신약지원팀,강하늘,2026-09-24,미제출,보완요청(수정중),1,사업비 정산 영수증 중 불명확 영수증 1건 소명자료 보완 요청,주의(D-3이내),https://portal.gbsa.or.kr/forms/req_bio_equip_utilization.xlsx,2026-09-20 17:00:00,보완필요
+REQ-2026-028,DOC-AUDIT-2026-0028,기업지원실태점검,ICT 이노베이션스퀘어 교육 수료생 취업연계 결과,미래전략실,ICT융합팀,신민아,2026-10-06,미제출,미착수,0,해당없음,여유,https://portal.gbsa.or.kr/forms/req_ict_square_employment.xlsx,,미승인
+REQ-2026-029,DOC-AUDIT-2026-0029,재정회계점검,2026년 계약심의위원회 개최현황 및 수의계약 공개내역,재무관리팀,재무관리팀,이도현,2026-09-25,미제출,작성중,0,해당없음,주의(D-3이내),https://portal.gbsa.or.kr/forms/req_contract_review_2026.xlsx,,미승인
+REQ-2026-030,DOC-AUDIT-2026-0030,경영혁신과제,공공기관 조직문화 개선 캠페인 이행결과서,기획조정실,인사총무팀,이서연,2026-10-15,미제출,미착수,0,해당없음,여유,https://portal.gbsa.or.kr/forms/req_org_culture_survey.xlsx,,미승인

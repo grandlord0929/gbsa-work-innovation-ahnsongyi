@@ -26,7 +26,7 @@ cp .env.example .env     # 그리고 SUPABASE_URL / SUPABASE_KEY 채우기
 ### 3. 초기 데이터 시드 + 실행
 ```bash
 npm install
-npm run seed             # seed-data/*.csv(백업 데이터)로 사원 19명·업무 110건·제출 이력을 통째로 교체 (멱등)
+npm run seed             # seed-data/*.csv(백업 데이터)로 사원 19명·업무 106건·제출 이력 34건을 통째로 교체 (멱등)
 npm run seed -- --synthetic   # 이전 방식: 가상 사원 200명 + 기본 업무 801건 (사원은 upsert)
 npm run dev              # http://localhost:4000
 ```
@@ -45,7 +45,7 @@ lib/data.js           데이터 접근 계층 (사원/업무/제출/집계/채�
 lib/assign.js         부서 단위 제출요청 발송
 lib/seedData.js       가상 사원 200명 + 초기 업무 생성, 시드/초기화
 lib/seedCsv.js        seed-data/*.csv → employees/requests/tasks/submissions 교체 시더
-seed-data/            백업 데이터(education_status / erp_attendance_logs / task_requests .csv)
+seed-data/            백업 데이터(processed_education_submissions / processed_attendance_anomalies / processed_audit_tasks / raw_education_results .csv)
 routes/*.js           tasks, admin, stats, chat, demo, analyze
 scripts/seedSupabase.js  시드 스크립트
 supabase/schema.sql   테이블 정의 + RLS
