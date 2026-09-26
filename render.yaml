@@ -16,10 +16,8 @@ services:
         value: "24"
       - key: NODE_ENV
         value: production
-      - key: BASIC_AUTH_USER
-        value: gbsa
-      - key: BASIC_AUTH_PASS
-        generateValue: true    # Render가 랜덤 암호 생성 → 대시보드 Environment 탭에서 확인해 팀에 공유
+      - key: SESSION_SECRET
+        generateValue: true    # 로그인 세션 서명 키(랜덤 생성). 접근 인증은 사번 로그인으로 일원화됨(HTTP Basic 제거)
       - key: SUPABASE_URL
         sync: false            # 값은 Render 대시보드에서 직접 입력 (저장소에 넣지 않음)
       - key: SUPABASE_KEY

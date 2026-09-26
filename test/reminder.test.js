@@ -1,6 +1,5 @@
 // 제출 요청 이메일 (관리자) — 가짜 Supabase + 가짜 Resend 전송으로 검증. 실제 메일은 보내지 않는다.
 process.env.SEED_SOURCE = 'synthetic';
-delete process.env.BASIC_AUTH_PASS;
 process.env.NODE_ENV = 'test';
 delete process.env.ADMIN_DEPTS;
 const test = require('node:test');

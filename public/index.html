@@ -342,12 +342,8 @@ async function api(path, opts={}){
     const raw = await res.text(); let data;
     try{ data = JSON.parse(raw); }catch(e){ data = { error: raw.replace(/\s+/g,' ').trim().slice(0,160) }; }
     const where = `요청 실패 (${res.status}) ${path.split('?')[0]}`;
-    if(res.status===401 && data.code==='LOGIN_REQUIRED'){ toLogin(); throw Object.assign(new Error('로그인이 필요합니다.'),{status:401,data}); }
-    if(res.status===401){   // 브라우저가 인증 창을 띄우지 않은 경우를 대비해 로그인 경로로 세션당 1회 이동
-      try{ if(!sessionStorage.getItem('gbsa.loginTried')){ sessionStorage.setItem('gbsa.loginTried','1'); location.href='/api/login'; } }catch(e){}
-    }
-    const err = new Error(res.status===401 ? '접근 암호가 필요합니다. 브라우저의 인증 창에 아이디/암호를 입력하세요. ('+where+')'
-      : (data.error || data.message) ? `${data.error||data.message} — ${where}` : where);
+    if(res.status===401){ toLogin(); throw Object.assign(new Error('로그인이 필요합니다.'),{status:401,data}); }   // 세션 없음/만료 → 로그인 페이지
+    const err = new Error((data.error || data.message) ? `${data.error||data.message} — ${where}` : where);
     err.status = res.status; err.data = data;
     throw err;
   }

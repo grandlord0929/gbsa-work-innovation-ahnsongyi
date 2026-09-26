@@ -1,6 +1,5 @@
 // UI 확인용 개발 서버: 실제 Supabase 대신 인메모리 가짜 DB(test/fakeSupabase.js)를 주입해 앱을 띄운다.  npm run dev:fake
 // 실제 데이터를 건드리지 않고 화면/OCR 흐름을 시험할 수 있다. 서버를 끄면 데이터는 사라진다.
-delete process.env.BASIC_AUTH_PASS;
 process.env.NODE_ENV = 'development';
 
 const { createFakeSupabase } = require('./fakeSupabase');

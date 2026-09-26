@@ -1,7 +1,7 @@
 # 의존성
 node_modules/
 
-# 환경변수 (SUPABASE_KEY, BASIC_AUTH_PASS 등 비밀값) — 예시는 .env.example 만 커밋
+# 환경변수 (SUPABASE_KEY, RESEND_API_KEY 등 비밀값) — 예시는 .env.example 만 커밋
 .env
 .env.*
 !.env.example

@@ -82,7 +82,7 @@ const ss={get:k=>{try{return sessionStorage.getItem(k)}catch(e){return null}},se
 const goHome=()=>{ const next=ss.get('gbsa.next')||'/'; ss.del('gbsa.next'); location.replace(/^\/(#\w*)?$/.test(next)?next:'/'); };
 const saveUser=u=>store.set('gbsa.user',JSON.stringify(u));
 
-async function readJson(res){ const raw=await res.text(); try{return JSON.parse(raw)}catch(e){return {error:res.status===401?'접근 암호가 필요합니다. 브라우저의 인증 창에 아이디/암호를 입력해 주세요.':(raw.replace(/\s+/g,' ').trim().slice(0,120)||'서버 응답을 읽을 수 없습니다.')}} }
+async function readJson(res){ const raw=await res.text(); try{return JSON.parse(raw)}catch(e){return {error:(raw.replace(/\s+/g,' ').trim().slice(0,120)||'서버 응답을 읽을 수 없습니다.')}} }
 
 // 이미 로그인된 브라우저(유효한 세션 쿠키)면 바로 메인으로
 (async()=>{

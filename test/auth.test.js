@@ -1,6 +1,5 @@
 // 사번 로그인/세션/접근 제어 테스트 (인메모리 가짜 Supabase)
 process.env.SEED_SOURCE = 'synthetic';
-delete process.env.BASIC_AUTH_PASS;
 process.env.NODE_ENV = 'test';
 delete process.env.ADMIN_DEPTS;
 const test = require('node:test');

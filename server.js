@@ -5,12 +5,12 @@ process.env.TZ = process.env.APP_TZ || 'Asia/Seoul';
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
-const { basicAuth, securityHeaders, assertProductionSafe } = require('./lib/security');
+const { securityHeaders, assertProductionSafe } = require('./lib/security');
 const { listEmployees, getEmployee } = require('./lib/data');
 const { wrap } = require('./lib/http');
 const { sessionGuard, adminOnly } = require('./lib/session');
 
-// 운영 환경에서 접근 암호 없이 공개되는 것을 차단. 직접 실행(로컬/Render)이면 메시지만 출력하고 종료,
+// 운영 환경에서 세션 서명 키가 없으면 시작을 거부. 직접 실행(로컬/Render)이면 메시지만 출력하고 종료,
 // Vercel 에서는 예외가 진입점(lib/handler.js)으로 전달되어 오류 응답으로 노출된다.
 try {
   assertProductionSafe();
@@ -31,19 +31,12 @@ app.disable('x-powered-by');
 app.use(securityHeaders);
 // 프론트와 API가 같은 출처이므로 CORS 는 기본 비활성. 다른 도메인에서 호출해야 할 때만 CORS_ORIGIN(쉼표 구분) 지정.
 if (process.env.CORS_ORIGIN) app.use(cors({ origin: process.env.CORS_ORIGIN.split(',').map((s) => s.trim()) }));
-if (process.env.BASIC_AUTH_PASS) {
-  app.use(basicAuth({ user: process.env.BASIC_AUTH_USER || 'gbsa', pass: process.env.BASIC_AUTH_PASS }));
-}
 app.use(express.json({ limit: '5mb' }));
 // 사번 로그인 세션: 공개 경로(/api/health, /api/auth/login 등)를 뺀 모든 /api/* 는 로그인(쿠키)이 필요하다.
 app.use(sessionGuard);
 app.use('/api/auth', require('./routes/auth'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true, service: 'gbsa-reminder-backend' }));
-
-// 접근 암호 로그인 진입점: 브라우저 주소창 이동(top-level)으로 접근하면 인증 창이 확실히 뜨고,
-// 인증에 성공하면 화면으로 돌려보낸다. (Vercel 은 화면이 CDN 정적이라 API 호출로만 인증이 걸리기 때문)
-app.get('/api/login', (req, res) => res.redirect('/'));
 
 // ---- 사원 DB (Supabase employees 테이블) ----
 const toKorean = (e) => ({ 사번: e.empNo, 사원명: e.name, 부서명: e.dept }); // 프론트 호환 형태
@@ -94,7 +87,7 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
 if (require.main === module) {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`GBSA 리마인더 백엔드 서버 실행 중: 포트 ${PORT} (http://localhost:${PORT})`);
-    console.log(`접근 암호(Basic Auth): ${process.env.BASIC_AUTH_PASS ? '사용' : '미사용 (로컬 개발용)'}`);
+    console.log('접근 제어: 사번 로그인 세션(/api/auth/login)');
     console.log(`Supabase: ${process.env.SUPABASE_URL && process.env.SUPABASE_KEY ? '설정됨' : '❌ SUPABASE_URL / SUPABASE_KEY 미설정'}`);
   });
 }

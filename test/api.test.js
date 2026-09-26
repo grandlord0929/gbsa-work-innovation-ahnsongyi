@@ -6,7 +6,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createFakeSupabase } = require('./fakeSupabase');
 
-delete process.env.BASIC_AUTH_PASS;
 process.env.NODE_ENV = 'test';
 delete process.env.DEMO_USER_EMPNO;
 

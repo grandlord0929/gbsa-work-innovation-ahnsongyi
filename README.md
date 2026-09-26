@@ -19,8 +19,7 @@ cp .env.example .env     # 그리고 SUPABASE_URL / SUPABASE_KEY 채우기
 |---|---|
 | `SUPABASE_URL` | `https://<project-ref>.supabase.co` |
 | `SUPABASE_KEY` | **service_role 키** (서버 전용 비밀키, anon 키 아님) |
-| `BASIC_AUTH_PASS` | 접근 암호. 공개 배포에서는 필수 |
-| `BASIC_AUTH_USER` | 접근 아이디 (기본 `gbsa`) |
+| `SESSION_SECRET` | (선택) 로그인 세션 서명 키. 비우면 `SUPABASE_KEY` 에서 자동 파생 |
 | `DEMO_USER_EMPNO` | 직원 모드 기본 로그인 사번 (기본: 홍길동) |
 
 ### 3. 초기 데이터 시드 + 실행
@@ -51,7 +50,7 @@ npm run dev              # http://localhost:4000
 ```
 api/app.js            Vercel 함수 진입점 (Node http 서버 스타일)
 lib/handler.js        요청 핸들러: Express 지연 로드, /api/_boot 진단, 오류를 JSON 으로 응답
-server.js             Express 앱 (라우팅, 접근 암호, 보안 헤더). `node server.js` 로도 직접 실행
+server.js             Express 앱 (라우팅, 사번 로그인 세션 가드, 보안 헤더). `node server.js` 로도 직접 실행
 lib/supabaseClient.js Supabase 클라이언트 (환경변수 → 클라이언트, 오류 변환, 1000행 페이지네이션)
 lib/data.js           데이터 접근 계층 (사원/업무/제출/집계/채팅)
 lib/assign.js         부서 단위 제출요청 발송
@@ -124,7 +123,6 @@ npm test
 - 직원 화면은 10초마다 동기화하며, 확인 중 → 제출 완료 / 재제출 요청으로 바뀌면 토스트와 챗봇 메시지로 알려 줍니다.
 - **파일 용량 제한 1MB**: 수료증 파일이 1MB를 넘으면 프론트가 OCR 전에 "파일 용량 초과" 메시지를 띄우고, 서버도 `413 FILE_TOO_LARGE` 로 거부합니다(`MAX_CERT_BYTES`, routes/tasks.js).
 - **재제출 요청 표시**: 직원 대시보드 상단에 `↩ 재제출 요청 받음 N건` 배너(사유 포함, [지금 다시 제출])와 KPI 타일이 표시되고, 관리자 화면에는 `재제출 요청 중 N건 (직원 재업로드 대기)` 가 표시됩니다(`/api/admin/overview` 의 `resubmitRequested`).
-- 관리자 API 접근 제어(관리자 권한 구분)는 아직 구현하지 않았습니다. 지금은
-- 이 앱에는 관리자 권한 구분이 없어 `/api/admin/*` 는 접근 암호(BASIC_AUTH)로만 보호됩니다.
+- 접근 인증은 **사번 로그인 세션**으로 일원화되어 있습니다(HTTP Basic 인증과 브라우저 기본 로그인 팝업은 제거됨). `/api/admin/*` 는 관리자 부서(기획조정실·인사총무팀) 세션만 접근할 수 있습니다.
 
 배포 방법은 [DEPLOY.md](DEPLOY.md), 시연 모드(수료증 OCR)는 화면의 「▶ 시연용 샘플 수료증 자동 입력」 버튼을 참고하세요.
