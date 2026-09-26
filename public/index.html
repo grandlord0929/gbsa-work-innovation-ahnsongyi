@@ -298,9 +298,9 @@ footer{text-align:center;color:#94a3b8;font-size:11.5px;padding:26px}
 
   <details class="panel">
     <summary>공문(OCR)으로 제출요청 자동 생성</summary>
-    <div class="muted" style="margin-top:8px">공문·안내문을 올리면 제목, 업무유형, 마감일, 요청부서를 추출합니다. 이미지/PDF는 브라우저 OCR(Tesseract.js)로 텍스트를 읽습니다.</div>
+    <div class="muted" style="margin-top:8px">공문·안내문을 올리면 본문의 '요구자료명·과정명·교육명' 등에서 업무명을, '제출기한·마감일' 뒤에서 마감일을 추출하고 업무유형을 자동 분류합니다(업무유형은 직접 바꿀 수 있고, 요청부서는 로그인한 관리자의 부서로 채워집니다). 이미지/PDF는 브라우저 OCR(Tesseract.js)로 텍스트를 읽습니다.</div>
     <label id="docDrop" class="drop">공문 파일을 끌어놓거나 클릭하세요<br><small>TXT · PDF · JPG · PNG</small><input id="docFile" type="file" hidden accept=".txt,.pdf,.jpg,.jpeg,.png"></label>
-    <textarea id="docText" class="field" rows="6" placeholder="또는 OCR 결과 텍스트를 붙여 넣으세요&#10;예: 제목: 2026년 정보보안 교육 이수증 제출&#10;요청부서: ICT안전팀&#10;제출기한: 2026년 9월 30일&#10;대상자: 전체 직원"></textarea>
+    <textarea id="docText" class="field" rows="6" placeholder="또는 OCR 결과 텍스트를 붙여 넣으세요&#10;예: 가. 요구자료명 : 2026년도 행정사무감사 사전 제출 요구자료&#10;    나. 제출기한 : 2026년 9월 27일(일) 18:00까지"></textarea>
     <div class="actions-row" style="margin-top:10px"><button id="analyzeBtn" class="btn primary">문서 분석</button></div>
     <pre id="preview" class="preview">아직 분석된 문서가 없습니다.</pre>
     <div class="tbl-wrap" style="margin-top:12px"><table class="tbl"><thead><tr><th></th><th>업무명</th><th>자동분류</th><th>마감일</th><th>요청부서</th></tr></thead><tbody id="records"><tr><td colspan="5" class="muted">문서를 분석하면 결과가 표시됩니다.</td></tr></tbody></table></div>
@@ -780,21 +780,29 @@ $('#reqForm').onsubmit=async e=>{
 };
 
 /* ---------- 공문(OCR) → 제출요청 ---------- */
+const CAT_OPTS=[['doc','요구자료 제출'],['edu','교육 수료증 제출'],['service','복무 누락 소명']];
 function renderRecords(){
   $('#records').innerHTML=records.map((r,i)=>`<tr>
     <td><input type="checkbox" checked data-r="${i}" aria-label="선택"></td>
-    <td><input class="field" style="margin:0;min-width:240px" value="${esc(r.title)}" data-title="${i}"></td>
-    <td>${r.cat==='edu'?'교육':r.cat==='service'?'복무':'요구자료'}</td>
-    <td><input type="date" value="${esc(r.due)}" data-due="${i}"></td><td>${esc(r.dept)}</td></tr>`).join('');
+    <td><input class="field" style="margin:0;min-width:240px" value="${esc(r.title)}" data-title="${i}" placeholder="업무명을 입력하세요 (본문에서 찾지 못함)" aria-label="업무명"></td>
+    <td><select class="in" style="margin:0;width:auto;min-width:150px" data-cat="${i}" aria-label="자동분류(변경 가능)">${CAT_OPTS.map(([v,l])=>`<option value="${v}"${r.cat===v?' selected':''}>${l}</option>`).join('')}</select></td>
+    <td><input type="date" value="${esc(r.due)}" data-due="${i}" aria-label="마감일"></td><td>${esc(r.dept)}</td></tr>`).join('');
 }
 async function analyzeText(text){
-  try{ records=[await api('/api/analyze',{method:'POST',body:JSON.stringify({text})})]; renderRecords(); }
+  try{
+    const r=await api('/api/analyze',{method:'POST',body:JSON.stringify({text})});
+    r.dept=r.dept||(me&&me.dept)||'';   // 요청부서 = 로그인한 관리자의 부서
+    records=[r]; renderRecords();
+    const miss=[!r.title&&'업무명',!r.due&&'마감일'].filter(Boolean);
+    if(miss.length) toast(`${miss.join('·')}을(를) 본문에서 찾지 못했습니다. 직접 입력해 주세요.`);
+  }
   catch(e){ toast('문서 분석 실패: '+e.message,'err'); }
 }
 $('#createBtn').onclick=async()=>{
-  $$('#records tr').forEach((row,i)=>{ const t=row.querySelector(`[data-title="${i}"]`), d=row.querySelector(`[data-due="${i}"]`); if(t) records[i].title=t.value; if(d) records[i].due=d.value; });
+  $$('#records tr').forEach((row,i)=>{ const t=row.querySelector(`[data-title="${i}"]`), d=row.querySelector(`[data-due="${i}"]`), c=row.querySelector(`[data-cat="${i}"]`); if(t) records[i].title=t.value.trim(); if(d) records[i].due=d.value; if(c) records[i].cat=c.value; });
   const chosen=records.filter((_,i)=>$(`[data-r="${i}"]`)?.checked);
   if(!chosen.length) return toast('발송할 업무를 선택하세요.','err');
+  if(chosen.some(r=>!r.title)) return toast('업무명이 비어 있는 항목이 있습니다. 업무명을 입력하세요.','err');
   if(chosen.some(r=>!r.due)) return toast('마감일이 없는 항목이 있습니다. 마감일을 입력하세요.','err');
   const btn=$('#createBtn'); if(btn.disabled) return; const btnTxt=btn.textContent; btn.disabled=true; btn.textContent='발송 중...';
   try{ await dispatchRequests(chosen.map(r=>({title:r.title,cat:r.cat,dept:r.dept,due:r.due,raw:r.raw})), $('#docTarget').value, '공문 OCR'); }
@@ -1218,6 +1226,7 @@ async function init(){
     const r=await api('/api/employees'); // { success, employees:[{사번,사원명,부서명}] }
     employees=r.employees.map(x=>({empNo:String(x.사번),name:x.사원명,dept:x.부서명}));
     renderMe(); welcome();
+    if(me.dept) $('#reqFrom').value=me.dept;   // 요청부서 기본값 = 로그인한 관리자의 부서
     let w=null; try{ w=sessionStorage.getItem('gbsa.welcome'); sessionStorage.removeItem('gbsa.welcome'); }catch(e){}
     if(w) toast(`${w} 님 환영합니다`,'ok');
   }catch(e){

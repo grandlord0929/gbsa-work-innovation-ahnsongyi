@@ -223,8 +223,9 @@ test('챗봇: 내 업무 기준 답변 + 대화 로그', async () => {
 });
 
 test('공문 분석 API 는 DB 없이 동작한다', async () => {
-  const r = await post('/api/analyze', { text: '제목: 2026년 정보보안 교육 이수증 제출\n요청부서: ICT안전팀\n제출기한: 2026년 9월 25일' });
-  assert.equal(r.status, 200); assert.equal(r.body.due, '2026-09-25'); assert.equal(r.body.cat, 'edu');
+  const r = await post('/api/analyze', { text: '가. 교육명 : 2026년 정보보안 교육 이수증 제출\n나. 제출기한 : 2026년 9월 25일' });
+  assert.equal(r.status, 200); assert.equal(r.body.title, '2026년 정보보안 교육 이수증 제출'); assert.equal(r.body.due, '2026-09-25'); assert.equal(r.body.cat, 'edu');
+  assert.equal(r.body.dept, '바이오센터'); // 요청부서 = 로그인한 사원의 현재 소속 부서(사원 DB 기준)
 });
 
 test('DB 오류는 500 JSON 으로 응답하고, 테이블이 없으면 안내 문구가 나온다', async () => {
