@@ -118,3 +118,46 @@ test('발송 이력 테이블이 없어도 발송은 성공한다', async () => 
     assert.equal(r.status, 200); assert.equal(b.logged, false); assert.ok(b.sentAt);
   } finally { sb.from = realFrom; }
 });
+
+// ---- 제출요청 발송(/api/tasks/bulk) 시 요청 1건당 안내 메일 1통 ----
+const due = (n) => { const d = new Date(Date.now() + n * 864e5 + 9 * 36e5); return d.toISOString().slice(0, 10); };
+const bulk = (tasks, c = ADMIN) => post('/api/tasks/bulk', { tasks }, c);
+
+test('제출요청 발송: 요청 1건당 메일 1통, 시연 수신자로만, 대상 부서/인원/마감일/링크 포함', async () => {
+  const dept = (await data.listDepartments())[0];
+  const r = await bulk([{ title: '성과지표 자료 제출', cat: 'doc', dept: '기획조정실', due: due(5), targetDept: dept.dept }, { title: '정보보안 교육 이수증 제출', cat: 'edu', dept: '인사총무팀', due: due(2), targetDept: '전체' }]);
+  assert.equal(r.status, 201);
+  const b = await r.json();
+  assert.equal(b.mail.status, 'sent'); assert.equal(b.mail.sent, 2); assert.ok(b.mail.sentAt);
+  assert.equal(sentMails.length, 2);
+  for (const m of sentMails) assert.deepEqual(m.body.to, ['demo1@example.com', 'demo2@example.com']);
+  assert.equal(sentMails[0].body.subject, "[GBSA 업무 리마인더] '성과지표 자료 제출' 제출 기한 안내");
+  assert.ok(sentMails[0].body.html.includes(dept.dept) && sentMails[0].body.html.includes(`${dept.employees}명`) && sentMails[0].body.html.includes('기획조정실') && sentMails[0].body.html.includes(due(5)) && sentMails[0].body.html.includes('https://gbsa-demo.vercel.app/'));
+  assert.ok(sentMails[1].body.html.includes('전체 부서') && sentMails[1].body.html.includes('D-2'));
+  assert.equal(b.created, dept.employees + (await data.listEmployees()).length);   // 업무 생성은 그대로
+});
+
+test('메일 실패해도 제출요청(업무 생성)은 성공, 결과에 사유', async () => {
+  mailer.__setFetchForTests(async () => ({ ok: false, status: 403, json: async () => ({ message: 'You can only send testing emails to your own email address' }) }));
+  const before = fake._tables.tasks.length;
+  const r = await bulk([{ title: '실패 시험', cat: 'doc', dept: '기획조정실', due: due(4), targetDept: '전체' }]);
+  assert.equal(r.status, 201); const b = await r.json();
+  assert.equal(b.mail.status, 'failed'); assert.equal(b.mail.failed, 1); assert.match(b.mail.results[0].error, /403/);
+  assert.ok(fake._tables.tasks.length > before);
+  assert.ok(!JSON.stringify(b).includes('re_test_key'));
+});
+
+test('메일 설정이 없으면 업무만 발송하고 mail.status=not_configured', async () => {
+  delete process.env.RESEND_API_KEY;
+  const r = await bulk([{ title: '설정 없음 시험', cat: 'doc', dept: '기획조정실', due: due(4), targetDept: '전체' }]);
+  assert.equal(r.status, 201); const b = await r.json();
+  assert.equal(b.mail.status, 'not_configured'); assert.match(b.mail.message, /RESEND_API_KEY/); assert.equal(sentMails.length, 0);
+});
+
+test('한 번에 최대 10통까지만 발송(나머지는 skipped), 일반 부서는 제출요청 자체가 403', async () => {
+  const items = Array.from({ length: 12 }, (_, i) => ({ title: `대량 ${i + 1}`, cat: 'doc', dept: '기획조정실', due: due(9), targetDept: '전체' }));
+  const r = await bulk(items); // 서버 제한은 20건
+  const b = await r.json();
+  assert.equal(b.mail.sent, 10); assert.equal(b.mail.skipped, 2); assert.equal(sentMails.length, 10); assert.equal(b.mail.status, 'sent');
+  assert.equal((await bulk([{ title: 'x', cat: 'doc', dept: 'y', due: due(3), targetDept: '전체' }], USER)).status, 403);
+});

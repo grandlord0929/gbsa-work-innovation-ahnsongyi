@@ -741,6 +741,17 @@ $('#empRows').onclick=async e=>{
 };
 
 // 관리자 → 직원: 제출요청 발송 → POST /api/tasks/bulk → 대상 부서 전원에게 사원별 업무 행 생성
+// 제출요청 발송 시 함께 나가는 안내 메일(요청 1건당 1통) 결과 표시. 메일이 실패해도 업무 발송은 성공이다.
+function showMailResult(box,m){
+  if(!m) return;
+  const at=m.sentAt?m.sentAt.slice(11,16):'';
+  let html,type;
+  if(m.status==='sent'){ html=`<b>📧 실제 이메일로 안내문이 발송되었습니다.</b> (${m.sent}통${at?' · '+esc(at):''}${m.to&&m.to.length?' · 수신 '+m.to.length+'곳':''})`; type='ok'; toast(`📧 실제 이메일로 안내문이 발송되었습니다. (${m.sent}통)`,'ok'); }
+  else if(m.status==='partial'){ html=`<b>📧 안내 메일 ${m.sent}통 발송, ${m.failed+(m.skipped||0)}건은 보내지 못했습니다.</b><div class="muted">${(m.results||[]).filter(x=>!x.ok).map(x=>esc(x.title)+': '+esc(x.error)).join('<br>')}</div>`; type='warn'; toast(`안내 메일 일부 실패 (${m.sent}통 발송 / ${m.failed+(m.skipped||0)}건 실패)`,'err'); }
+  else if(m.status==='failed'){ html=`<b>📧 안내 메일을 보내지 못했습니다.</b> (제출요청은 정상 발송됨)<div class="muted">${(m.results||[]).map(x=>esc(x.error)).filter((v,i,a)=>a.indexOf(v)===i).join('<br>')}</div>`; type='warn'; toast('제출요청은 발송됐지만 안내 메일 발송에 실패했습니다: '+((m.results[0]||{}).error||''),'err'); }
+  else { html=`<span class="muted">📧 ${esc(m.message||'안내 메일은 발송되지 않았습니다.')}</span>`; type=''; }
+  const d=document.createElement('div'); d.style.cssText='margin-top:10px;padding-top:10px;border-top:1px dashed #a7f3d0'; if(type==='warn') d.style.color='var(--amber)'; d.innerHTML=html; box.appendChild(d);
+}
 async function dispatchRequests(items, targetDept, sourceLabel){
   const r=await api('/api/tasks/bulk',{method:'POST',body:JSON.stringify({tasks:items.map(i=>({...i,targetDept}))})});
   const label=targetDept==='전체'?'전체 부서':targetDept;
@@ -751,6 +762,7 @@ async function dispatchRequests(items, targetDept, sourceLabel){
       :`<div class="muted" style="color:var(--amber)">현재 로그인 사원(${esc(me?me.name:'')}, ${esc(me?me.dept:'')})은 대상 부서가 아니어서 목록에 나타나지 않습니다. 직원 모드에서 사원 전환으로 ${esc(label)} 소속 사원을 선택해 확인하세요.</div><button class="btn sm" id="goEmp" style="margin-top:8px">직원 모드로 이동</button>`);
   $('#goEmp').onclick=()=>setMode('employee');
   toast(`${label} ${r.requests[0].count}명에게 발송 완료 (${sourceLabel})`,'ok');
+  showMailResult(box,r.mail);
   await loadAdmin();
   const row=$(`#reqRows tr[data-req="${r.requests[0].id}"]`); if(row) row.classList.add('flash');
   return r;
@@ -758,16 +770,17 @@ async function dispatchRequests(items, targetDept, sourceLabel){
 $('#reqDue').min=ymd(today0()); { const d=today0(); d.setDate(d.getDate()+7); $('#reqDue').value=ymd(d); }
 $('#reqForm').onsubmit=async e=>{
   e.preventDefault();
+  if($('#reqSend').disabled) return;   // 발송 중 중복 제출 방지
   const title=$('#reqTitle').value.trim(), due=$('#reqDue').value, hint=$('#reqHint');
   if(!title){ hint.textContent='업무명을 입력하세요.'; $('#reqTitle').focus(); return }
   if(!due){ hint.textContent='마감일을 지정하세요.'; $('#reqDue').focus(); return }
   if(due<ymd(today0())){ hint.textContent='마감일은 오늘 이후여야 합니다.'; $('#reqDue').focus(); return }
-  hint.textContent=''; $('#reqSend').disabled=true;
+  hint.textContent=''; const sendBtn=$('#reqSend'), sendTxt=sendBtn.textContent; sendBtn.disabled=true; sendBtn.textContent='발송 중...';
   try{
     await dispatchRequests([{title,cat:$('#reqCat').value,dept:$('#reqFrom').value.trim()||'총무인사팀',due}], $('#reqDept').value, '수동 입력');
     $('#reqTitle').value='';
   }catch(err){ hint.textContent=err.message; toast('발송 실패: '+err.message,'err'); }
-  finally{ $('#reqSend').disabled=false; }
+  finally{ sendBtn.disabled=false; sendBtn.textContent=sendTxt; }
 };
 
 /* ---------- 공문(OCR) → 제출요청 ---------- */
@@ -787,8 +800,10 @@ $('#createBtn').onclick=async()=>{
   const chosen=records.filter((_,i)=>$(`[data-r="${i}"]`)?.checked);
   if(!chosen.length) return toast('발송할 업무를 선택하세요.','err');
   if(chosen.some(r=>!r.due)) return toast('마감일이 없는 항목이 있습니다. 마감일을 입력하세요.','err');
+  const btn=$('#createBtn'); if(btn.disabled) return; const btnTxt=btn.textContent; btn.disabled=true; btn.textContent='발송 중...';
   try{ await dispatchRequests(chosen.map(r=>({title:r.title,cat:r.cat,dept:r.dept,due:r.due,raw:r.raw})), $('#docTarget').value, '공문 OCR'); }
   catch(e){ toast('발송 실패: '+e.message,'err'); }
+  finally{ btn.disabled=false; btn.textContent=btnTxt; }
 };
 $('#analyzeBtn').onclick=()=>{ const t=$('#docText').value.trim(); if(!t) return toast('파일을 업로드하거나 텍스트를 입력하세요.','err'); $('#preview').textContent=t; analyzeText(t); };
 async function loadDocText(f){

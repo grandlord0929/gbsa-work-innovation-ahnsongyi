@@ -11,6 +11,7 @@ const { wrap } = require('../lib/http');
 const { formatMethod, EXT_BY_MIME } = require('../lib/review');
 const { saveCertFile } = require('../lib/storage');
 const { adminOnly, isAdmin, scopedEmpNo } = require('../lib/session');
+const { notifyRequests } = require('../lib/requestMail');
 
 const router = express.Router();
 
@@ -69,7 +70,9 @@ router.post('/bulk', adminOnly, wrap(async (req, res) => {
   for (const r of list) {
     requests.push(await createRequest({ title: r.title, cat: r.cat, dept: r.dept, due: r.due, targetDept: r.targetDept, raw: r.raw }));
   }
-  res.status(201).json({ created: requests.reduce((n, r) => n + r.count, 0), requests });
+  // 요청 1건당 안내 메일 1통(시연용 수신 주소로만). 메일이 실패해도 업무 발송은 성공이며 결과는 mail 에 담는다.
+  const mail = await notifyRequests(req, requests);
+  res.status(201).json({ created: requests.reduce((n, r) => n + r.count, 0), requests, mail });
 }));
 
 // POST /api/tasks/cert-upload  (multipart)
