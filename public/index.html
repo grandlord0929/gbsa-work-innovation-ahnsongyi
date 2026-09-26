@@ -386,7 +386,9 @@ function certLine(c,approved){
 }
 
 /* ---------- 모드 전환 ---------- */
+function denyAdmin(){ toast('관리자 모드는 기획조정실·인사총무팀 소속만 이용할 수 있습니다.','err'); history.replaceState(null,'','#employee'); if(mode!=='employee') setMode('employee'); }
 function setMode(m){
+  if(m==='admin' && !(me&&me.isAdmin)){ denyAdmin(); return; }
   if(mode==='employee' && m!=='employee') markSeen();
   mode=m; LS.set('gbsa.mode',m);
   try{ history.replaceState(null,'',m==='admin'?'#admin':'#employee'); }catch(e){}
@@ -1154,8 +1156,11 @@ async function init(){
     $('#meName').textContent='사원 DB 오류'; $('#cards').innerHTML='';
     return;
   }
-  if(!me.isAdmin){ $('#tabAdmin').hidden=true; LS.del('gbsa.mode'); }   // ADMIN_EMP_NOS 로 제한된 환경에서 일반 사원은 관리자 모드 숨김
+  // 관리자 모드는 기획조정실·인사총무팀 소속만: 그 외에는 탭을 숨기고, #admin 직접 접근은 안내 후 메인으로 되돌린다
+  $('#tabAdmin').hidden=!me.isAdmin;
+  if(!me.isAdmin){ LS.del('gbsa.mode'); if(location.hash==='#admin') denyAdmin(); }
   setMode(me.isAdmin&&(location.hash==='#admin'||LS.get('gbsa.mode')==='admin'&&location.hash!=='#employee')?'admin':'employee');
+  window.addEventListener('hashchange',()=>{ if(location.hash==='#admin'){ if(me&&me.isAdmin){ if(mode!=='admin') setMode('admin'); } else denyAdmin(); } });
   // 두 화면을 다른 탭/창에서 동시에 띄워도 10초마다 자동 갱신된다
   setInterval(()=>{ if(document.hidden) return; mode==='admin'?loadAdmin({quiet:true}):loadTasks({quiet:true}); },10000);
 }

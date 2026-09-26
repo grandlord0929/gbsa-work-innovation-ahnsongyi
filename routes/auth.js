@@ -10,7 +10,7 @@ const { setSessionCookie, clearSessionCookie, isAdmin, eqSafe } = require('../li
 const router = express.Router();
 
 // 사원 DB 에는 직급 컬럼이 없어 position 은 빈 값으로 내려준다(컬럼이 생기면 여기서 매핑).
-const profile = (e, session) => ({ empNo: e.empNo, name: e.name, dept: e.dept, position: e.position || '', isAdmin: isAdmin(session || { empNo: e.empNo }) });
+const profile = (e) => ({ empNo: e.empNo, name: e.name, dept: e.dept, position: e.position || '', isAdmin: isAdmin(e) }); // 관리자 여부는 DB 의 현재 소속 부서 기준
 
 // 무차별 대입 완화: 같은 IP 에서 10분 내 실패 8회 → 잠시 차단. (서버리스 인스턴스별 메모리라 완전한 방어는 아님)
 const fails = new Map();
@@ -56,7 +56,7 @@ router.post('/logout', (req, res) => {
 router.get('/me', wrap(async (req, res) => {
   const emp = req.session && (await getEmployee(req.session.empNo));
   if (!emp) { clearSessionCookie(req, res); return res.status(401).json({ error: '로그인이 필요합니다.', code: 'LOGIN_REQUIRED' }); }
-  res.json({ user: profile(emp, req.session) });
+  res.json({ user: profile(emp) });
 }));
 
 module.exports = router;

@@ -30,7 +30,7 @@ npm install
 - 앱 접속 시 로그인하지 않았으면 `/login` 으로 이동합니다. 아이디 = 사번(사원 DB `employees.emp_no`), 초기 비밀번호 = 사번.
 - `POST /api/auth/login` → 서명된 HttpOnly 쿠키(`gbsa_session`, 8시간) 발급 / `POST /api/auth/logout` / `GET /api/auth/me`
 - `/api/health`, `/api/auth/login|logout` 을 제외한 모든 `/api/*` 는 로그인이 필요합니다(401 `LOGIN_REQUIRED`). 사번을 생략한 `/api/tasks`, `/api/chat`, 수료증 업로드는 로그인 사원으로 자동 매핑됩니다.
-- `ADMIN_EMP_NOS`(쉼표 구분)를 지정하면 그 사번만 관리자 화면·타인 업무 접근이 가능합니다(미지정: 로그인한 모든 사원).
+- 관리자 모드는 소속 부서가 **기획조정실 또는 인사총무팀**인 사원만 사용할 수 있습니다(`ADMIN_DEPTS` 로 변경 가능). 그 외 부서는 관리자 탭이 숨겨지고, `#admin` 직접 접근은 안내 후 메인으로 이동하며, 관리자 API 는 403(`ADMIN_ONLY`)입니다. 일반 사원은 본인 업무만 조회/제출할 수 있습니다.
 
 npm run seed             # seed-data/*.csv(백업 데이터)로 사원 19명·업무 106건·제출 이력 34건을 통째로 교체 (멱등)
 npm run seed -- --synthetic   # 이전 방식: 가상 사원 200명 + 기본 업무 801건 (사원은 upsert)

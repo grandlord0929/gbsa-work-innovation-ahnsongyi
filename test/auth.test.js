@@ -2,7 +2,7 @@
 process.env.SEED_SOURCE = 'synthetic';
 delete process.env.BASIC_AUTH_PASS;
 process.env.NODE_ENV = 'test';
-delete process.env.ADMIN_EMP_NOS;
+delete process.env.ADMIN_DEPTS;
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createFakeSupabase } = require('./fakeSupabase');
@@ -83,20 +83,50 @@ test('로그아웃하면 쿠키가 만료된다', async () => {
   assert.equal(r.status, 200); assert.match(r.headers.get('set-cookie'), /Max-Age=0/);
 });
 
-test('ADMIN_EMP_NOS 지정 시: 일반 사원은 본인 업무만, 관리자 API 는 403', async () => {
-  const emps = await data.listEmployees();
-  const [adm, usr] = [emps[0], emps[1]];
-  process.env.ADMIN_EMP_NOS = adm.empNo;
+// 관리자 모드는 기획조정실 / 인사총무팀 소속만 (그 외 부서는 관리자 API 403, 타인 업무 접근 403)
+const ADMIN_DEPTS = ['기획조정실', '인사총무팀'];
+async function addEmp(empNo, name, dept) {
+  await client.getSupabase().from('employees').upsert({ emp_no: empNo, name, dept }, { onConflict: 'emp_no' });
+  data.invalidateEmployees();
+}
+
+test('부서별 관리자 권한: 기획조정실·인사총무팀만 관리자, 그 외 부서는 숨김/403', async () => {
+  const cases = [['T0001', '기획팀장', '기획조정실', true], ['T0002', '총무담당', '인사총무팀', true], ['T0003', '일반사원', '바이오센터', false], ['T0004', '유사부서', '총무인사팀', false]];
+  for (const [no, name, dept] of cases) await addEmp(no, name, dept);
+  for (const [no, , dept, admin] of cases) {
+    const r = await login(no); const b = await r.json(); const c = cookieOf(r);
+    assert.equal(b.user.isAdmin, admin, `${dept} 프로필 isAdmin`);
+    assert.equal((await call('/api/auth/me', { cookie: c })).status, 200);
+    const ov = await call('/api/admin/overview', { cookie: c });
+    assert.equal(ov.status, admin ? 200 : 403, `${dept} /api/admin/overview`);
+    if (!admin) assert.equal((await ov.json()).code, 'ADMIN_ONLY');
+    for (const p of ['/api/stats', '/api/admin/reviews']) assert.equal((await call(p, { cookie: c })).status, admin ? 200 : 403, `${dept} ${p}`);
+    assert.equal((await call('/api/demo/reset', { cookie: c, json: {}, method: 'POST' })).status === 403, !admin, `${dept} demo/reset`);
+    assert.equal((await call('/api/analyze', { cookie: c, json: { text: '제목: x' } })).status === 403, !admin, `${dept} analyze`);
+  }
+});
+
+test('일반 부서 사원은 본인 업무만: 타인 사번/업무 접근·발송·수정은 403, 관리자 부서는 가능', async () => {
+  const adm = cookieOf(await login('T0001')), usr = cookieOf(await login('T0003'));
+  const mine = await (await call('/api/tasks', { cookie: usr })).json();
+  assert.ok(Array.isArray(mine));
+  assert.equal((await call('/api/tasks?empNo=GBSA2026001', { cookie: usr })).status, 403);
+  assert.equal((await call('/api/tasks?empNo=GBSA2026001', { cookie: adm })).status, 200);
+  const other = (await (await call('/api/tasks?empNo=GBSA2026001', { cookie: adm })).json())[0];
+  assert.equal((await call(`/api/tasks/${other.id}`, { cookie: usr })).status, 403);
+  assert.equal((await call(`/api/tasks/${other.id}/submit`, { cookie: usr, json: {} })).status, 403);
+  assert.equal((await call(`/api/tasks/${other.id}`, { cookie: usr, method: 'PATCH', json: { title: 'x' } })).status, 403);
+  assert.equal((await call(`/api/tasks/${other.id}`, { cookie: usr, method: 'DELETE' })).status, 403);
+  assert.equal((await call('/api/tasks/bulk', { cookie: usr, json: { tasks: [] } })).status, 403);
+  assert.equal((await call(`/api/tasks/${other.id}`, { cookie: adm })).status, 200);
+});
+
+test('ADMIN_DEPTS 로 관리자 부서를 재정의할 수 있다', async () => {
+  process.env.ADMIN_DEPTS = '바이오센터';
   try {
-    const cu = cookieOf(await login(usr.empNo)), ca = cookieOf(await login(adm.empNo));
-    assert.equal((await call('/api/admin/overview', { cookie: cu })).status, 403);
-    assert.equal((await call('/api/admin/overview', { cookie: ca })).status, 200);
-    assert.equal((await call(`/api/tasks?empNo=${adm.empNo}`, { cookie: cu })).status, 403);
-    assert.equal((await call(`/api/tasks?empNo=${usr.empNo}`, { cookie: cu })).status, 200);
-    const admTask = (await (await call('/api/tasks', { cookie: ca })).json())[0];
-    assert.equal((await call(`/api/tasks/${admTask.id}`, { cookie: cu })).status, 403);
-    assert.equal((await call(`/api/tasks/${admTask.id}/submit`, { cookie: cu, json: {} })).status, 403);
-    assert.equal((await call('/api/tasks/bulk', { cookie: cu, json: { tasks: [] } })).status, 403);
-    assert.equal((await call('/api/demo/reset', { cookie: cu, json: {} })).status, 403);
-  } finally { delete process.env.ADMIN_EMP_NOS; }
+    assert.equal(S.isAdmin({ dept: '바이오센터' }), true);
+    assert.equal(S.isAdmin({ dept: '기획조정실' }), false);
+  } finally { delete process.env.ADMIN_DEPTS; }
+  assert.deepEqual(S.adminDepts(), ADMIN_DEPTS);
+  assert.equal(S.isAdmin(null), false); assert.equal(S.isAdmin({ dept: '' }), false);
 });

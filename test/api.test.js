@@ -16,7 +16,7 @@ const seed = require('../lib/seedData');
 let fake; let server; let base;
 // 모든 API 는 사번 로그인(세션 쿠키)이 필요하므로 기본으로 홍길동(GBSA2026001) 세션을 실어 보낸다. opts.anon 이면 세션 없이 호출.
 const { signSession } = require('../lib/session');
-const SESSION = `gbsa_session=${encodeURIComponent(signSession({ empNo: 'GBSA2026001', name: '홍길동', dept: '바이오센터' }))}`;
+const SESSION = `gbsa_session=${encodeURIComponent(signSession({ empNo: 'GBSA2026001', name: '홍길동', dept: '인사총무팀' }))}`; // 관리자 API 도 함께 시험하므로 관리자 부서(인사총무팀) 세션
 const api = async (path, opts = {}) => {
   const { anon, ...init } = opts;
   const res = await fetch(base + path, anon ? init : { ...init, headers: { Cookie: SESSION, ...(init.headers || {}) } });
