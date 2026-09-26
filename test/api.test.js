@@ -1,4 +1,5 @@
 // API 통합 테스트 (node --test). 실제 Supabase 가 아니라 test/fakeSupabase.js 의 인메모리 흉내를 주입해 실행한다.
+process.env.SEED_SOURCE = 'synthetic'; // 테스트는 가상 200명 시드 기준 (seed-data/*.csv 무시)
 // → 쿼리/라우트 로직 검증용이며, 실제 Supabase 와의 최종 확인은 `npm run seed` 및 배포 후 /api/_boot?step=supabase 로 한다.
 const test = require('node:test');
 const assert = require('node:assert/strict');

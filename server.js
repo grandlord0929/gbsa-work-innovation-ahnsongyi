@@ -59,7 +59,7 @@ app.get('/api/employees/search', wrap(async (req, res) => {
   res.json({ success: true, count: data.length, employees: data });
 }));
 
-// 3. 직원 모드 로그인 사원 (홍길동 → 바이오센터 첫 사원 → 첫 사원, DEMO_USER_EMPNO 로 지정 가능)
+// 3. 직원 모드 로그인 사원 (안송이 → 홍길동 → 바이오센터 첫 사원 → 첫 사원, DEMO_USER_EMPNO 로 지정 가능)
 app.get('/api/me', wrap(async (req, res) => {
   const me = await getDefaultUser();
   if (!me) return res.status(404).json({ error: '사원 DB가 비어 있습니다. `npm run seed` 로 초기 데이터를 넣어 주세요.' });

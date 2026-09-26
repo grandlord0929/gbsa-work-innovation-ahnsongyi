@@ -26,10 +26,11 @@ cp .env.example .env     # 그리고 SUPABASE_URL / SUPABASE_KEY 채우기
 ### 3. 초기 데이터 시드 + 실행
 ```bash
 npm install
-npm run seed             # 가상 사원 200명 + 기본 업무 801건 삽입 (사원은 upsert 로 멱등)
+npm run seed             # seed-data/*.csv(백업 데이터)로 사원 19명·업무 110건·제출 이력을 통째로 교체 (멱등)
+npm run seed -- --synthetic   # 이전 방식: 가상 사원 200명 + 기본 업무 801건 (사원은 upsert)
 npm run dev              # http://localhost:4000
 ```
-- `npm run seed -- --reset` : 업무/제출/요청/대화 이력을 모두 지우고 초기 상태로 다시 시드 (사원 유지)
+- `npm run seed -- --synthetic --reset` : 업무/제출/요청/대화 이력을 모두 지우고 초기 상태로 다시 시드 (사원 유지)
 - 화면의 「↺ 시연 데이터 초기화」 버튼도 같은 초기화를 수행합니다(`POST /api/demo/reset`).
 - 테이블이 없거나 키가 잘못되면 시드 스크립트가 원인을 안내합니다.
 
@@ -43,6 +44,8 @@ lib/supabaseClient.js Supabase 클라이언트 (환경변수 → 클라이언트
 lib/data.js           데이터 접근 계층 (사원/업무/제출/집계/채팅)
 lib/assign.js         부서 단위 제출요청 발송
 lib/seedData.js       가상 사원 200명 + 초기 업무 생성, 시드/초기화
+lib/seedCsv.js        seed-data/*.csv → employees/requests/tasks/submissions 교체 시더
+seed-data/            백업 데이터(education_status / erp_attendance_logs / task_requests .csv)
 routes/*.js           tasks, admin, stats, chat, demo, analyze
 scripts/seedSupabase.js  시드 스크립트
 supabase/schema.sql   테이블 정의 + RLS
